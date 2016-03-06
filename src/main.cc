@@ -11,7 +11,7 @@ int main(){
  
   MyClass a;
 
-  a.loadData(ss);
+  a.loadPairings(ss);
 	cout << "Hi" << endl;
 
 	return 0;

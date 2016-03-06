@@ -3,12 +3,6 @@
 #include "mylib.h"
 
 using namespace std;
-int square(int n){
-  return n*n;
-}
-TEST (proba, proba1){
-  EXPECT_EQ(4, square(2));
-}
 
 TEST (test1, test11){
   ASSERT_TRUE( MyClass::isPrefix("al", "alma"));
@@ -17,6 +11,13 @@ TEST (test1, test11){
   ASSERT_FALSE( MyClass::isPrefix("almaa", "alma"));
 }
 
+TEST (testPairing, testPairing1)
+{
+  MyClass::Pairing a1("id1","aId1");
+  MyClass::Pairing a2("id2","aId2");
+  ASSERT_EQ("id1",a1.getId());
+  ASSERT_EQ("aId1",a1.getAId());
+}
 TEST (testLoad, testLoad1){
 
   {
@@ -26,7 +27,7 @@ TEST (testLoad, testLoad1){
  
     MyClass a;
 
-    a.loadData(ss);
+    a.loadPairings(ss);
     ASSERT_EQ(2, a.size());
   }
   {
@@ -37,7 +38,7 @@ TEST (testLoad, testLoad1){
  
     MyClass a;
 
-    a.loadData(ss);
+    a.loadPairings(ss);
     ASSERT_EQ(2, a.size());
     ASSERT_EQ(1,a.getLoadFailures());
   }
@@ -50,7 +51,7 @@ TEST (testLoad, testLoad1){
     MyClass a;
 
 
-    a.loadData(ss);
+    a.loadPairings(ss);
     string key = "ke";
     ASSERT_TRUE(a.isPrefixInMap("ke"));
     //it is a real prefix
@@ -73,7 +74,7 @@ TEST (testLoad, testLoad1){
     ss << "bela,value2\n";
 
     MyClass a;
-    a.loadData(ss);
+    a.loadPairings(ss);
     ASSERT_TRUE(a.isKey("key2"));
     ASSERT_FALSE(a.isKey("key3"));
     ASSERT_FALSE(a.selfPrefix());
@@ -87,7 +88,7 @@ TEST (testLoad, testLoad1){
     ss << "bel,value2\n";
 
     MyClass a;
-    a.loadData(ss);
+    a.loadPairings(ss);
     //also a real prefix of another key
     ASSERT_TRUE(a.isPrefixInMap("ke",true));
     //not a real prefix of another key

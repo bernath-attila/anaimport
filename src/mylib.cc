@@ -5,22 +5,24 @@
 
 using namespace std;
 
-void MyClass::loadData(istream& in){
+void MyClass::loadPairings(istream& in){
   duplicate = 0;
   container.clear();
   const int maxSize = 512;
   char line[maxSize];
-  char key[maxSize], value[maxSize];
+  char pId[maxSize], pAID[maxSize];
 
-  while (in.getline(key,maxSize,',') && in.getline(value,maxSize)){
-    
-    if(!container.count(key)){
-      container[key] = value;
-    }
-    else{
-      cerr << "Error: Key non-unique " << key <<endl;
+  while (in.getline(pId,maxSize,',') 
+	 && in.getline(pAid,maxSize)){
+    Pairing a(pId,pAid);
+    if(container.count(pId)){
+      cerr << "Error: Key non-unique " << pId <<endl;
       duplicate++;
       //exit (EXIT_FAILURE);
+    }
+    else{
+      //container[key] = a;
+      container.insert(SSMap::value_type(pId,a));
     }
   }
 
@@ -28,8 +30,9 @@ void MyClass::loadData(istream& in){
 
 
 
-bool MyClass::isPrefix(string foo, string foobar){
-  std::pair<string::iterator,string::iterator> res = std::mismatch(foo.begin(), foo.end(), foobar.begin());
+bool MyClass::isPrefix(const string& foo, const string& foobar){
+  std::pair<string::const_iterator,string::const_iterator> res = 
+    std::mismatch(foo.begin(), foo.end(), foobar.begin());
 
  if (res.first == foo.end())
     {
@@ -100,7 +103,7 @@ void MyClass::run(std::istream& pairings,
 	   std::ostream& output)
 {
   //load pairings
-  loadData(pairings);
+  loadPairings(pairings);
   //check the pairings
   if (getLoadFailures()>0
       || selfPrefix())
