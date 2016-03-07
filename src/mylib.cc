@@ -7,28 +7,59 @@ using namespace std;
 
 void MyClass::loadPairings(istream& in){
   duplicate = 0;
-  container.clear();
+  pairingMap.clear();
   const int maxSize = 512;
-  char line[maxSize];
-  char pId[maxSize], pAId[maxSize];
+  
+  char pId[maxSize], pAId[maxSize],crcString[maxSize];
+
+  /*
+  //string firstLine;
+  //check header
+  if (!std::getline(in,firstLine)
+      || firstLine != "#pairing_id,pairing_aid,crc_string")
+    {
+      cerr << "Pairing file header is not as expected." << endl;
+      exit(1);
+    }
+  */
+
 
   while (in.getline(pId,maxSize,',') 
-	 && in.getline(pAId,maxSize)){
-    Pairing a(pId,pAId);
-    if(container.count(pId)){
+	 && in.getline(pAId,maxSize,',')
+	 && in.getline(crcString,maxSize)){
+    Pairing a(pId,pAId,crcString);
+    if(pairingMap.count(pId)){
       cerr << "Error: Key non-unique " << pId <<endl;
       duplicate++;
       //exit (EXIT_FAILURE);
     }
-    else{
-      //container[key] = a;
-      container.insert(SSMap::value_type(pId,a));
-    }
+    pairingMap[pId].push_back(a);
   }
-
 }
 
 
+void MyClass::Pairing::parseCrcString(const std::string& crcString)
+{
+  if (std::count(crcString.begin(), crcString.end(), '|') != 12)
+    {
+      cerr << "Failure parsing crcString (num of separators): "
+	+ crcString << endl;
+      exit(1);
+    }
+  string s = crcString;
+  std::replace(s.begin(),s.end(),'|',' ');
+  std::istringstream ss(s);
+  int crcComp;
+  for (int i = 0; i < 12; ++i)
+    {
+      ss >> crcComp;
+      if (!ss.good()){
+	cerr << "Failure parsing crcString: " + crcString << endl;
+	exit(1);
+      }
+      crc.push_back(crcComp);
+    }
+}
 
 bool MyClass::isPrefix(const string& foo, const string& foobar){
   std::pair<string::const_iterator,string::const_iterator> res = 
@@ -46,11 +77,12 @@ bool MyClass::isPrefix(const string& foo, const string& foobar){
 
 bool MyClass::isPrefixInMap(string searchFor, bool realPrefix){
   //map<string,string>
-  SSMap::iterator it = container.lower_bound(searchFor);
-    
-  if (it == container.end())
+  SSMap::iterator it = pairingMap.lower_bound(searchFor);
+  bool result;
+
+  if (it == pairingMap.end())
     {
-      return false;
+      result = false;
     }
   else
     {
@@ -58,35 +90,39 @@ bool MyClass::isPrefixInMap(string searchFor, bool realPrefix){
 	{
 	  if (!realPrefix)
 	    {
-	      return true;
+	      result = true;
 	    }
 	  else // in this case we have to check the next element
-	    
 	    {
-	      it++;
-	      if (it == container.end())
+	      if (searchFor != it->first)
 		{
-		  return false;
+		  result = true;
 		}
 	      else
 		{
-		  return isPrefix(searchFor,it->first); 
-		}
-	      
+		  it++;
+		  if (it == pairingMap.end())
+		    {
+		      result = false;
+		    }
+		  else
+		    {
+		      result = isPrefix(searchFor,it->first); 
+		    }
+		}	      
 	    }
 	} else
 	{
-	  return false;
-
+	  result = false;
 	}
-
     }
+  return result;
 }
 
 int MyClass::selfPrefix(){
   _selfPrefix = 0;
-  for (SSMap::iterator it = container.begin();
-       it!= container.end();++it){
+  for (SSMap::iterator it = pairingMap.begin();
+       it!= pairingMap.end();++it){
     string key = it->first;
     
     if (isPrefixInMap(key,true)){

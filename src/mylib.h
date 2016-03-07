@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <algorithm>
 //#include <ostream>
 //#include <istream>
 
@@ -14,12 +15,22 @@ class MyClass{
   class Pairing{
     std::string id;
     std::string aId;
-    //std::vector<int> crc;
+    std::vector<int> crc;
+
   public:
-    Pairing(const std::string& _id, const std::string& _aId){
-      id = _id;
-      aId = _aId;
-    }
+    Pairing(const std::string& _id, 
+	    const std::string& _aId,
+	    //we expect crcString to be 12 non-negative integers with 12 | 
+	    //chars between (and in the end)
+	    const std::string& crcString)
+      {
+	id = _id;
+	aId = _aId;
+	parseCrcString(crcString);
+      }
+    void parseCrcString(const std::string& crcString);
+    int getCrc(int index){ return crc[index];}
+    
     std::string getId(){ return id;}
     std::string getAId(){ return aId;}
   };  
@@ -46,8 +57,8 @@ class MyClass{
   };
 
  private:
-  typedef std::map<std::string,Pairing> SSMap; 
-  SSMap container;
+  typedef std::map< std::string, std::vector<Pairing> > SSMap; 
+  SSMap pairingMap;
   int duplicate;
   int _selfPrefix;
  public:
@@ -68,9 +79,12 @@ class MyClass{
 
 
   int size(){
-    return container.size();
+    return pairingMap.size();
   }
   
+  int numOfPairingsWithKey(const std::string& key){
+    return pairingMap[key].size();
+  }
   bool isPrefixInMap(std::string key, bool realPrefix = false);
 
   int getLoadFailures()
@@ -80,7 +94,7 @@ class MyClass{
   }
 
   bool isKey(const std::string& key){
-    return container.count(key);
+    return pairingMap.count(key);
   }
 
   int selfPrefix();
