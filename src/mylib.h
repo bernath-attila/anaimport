@@ -24,15 +24,48 @@ class MyClass{
     std::string getAId(){ return aId;}
   };  
 
+  class CrmEvents{
+    std::string tlc;
+    typedef std::string Event; 
+    std::vector<std::string> events;
+  public:
+    void setTlc(const std::string& _tlc){
+      events.clear();
+      tlc = _tlc;
+    }
+    std::string getTlc(){
+      return tlc;
+    }
+    
+    void addEvent(const Event& event){
+      events.push_back(event);
+    }
+    int numOfEvents(){
+      return events.size();
+    }
+  };
+
  private:
   typedef std::map<std::string,Pairing> SSMap; 
   SSMap container;
   int duplicate;
-  
+  int _selfPrefix;
  public:
+  std::vector<CrmEvents> crmEvents;
+
+  static bool  isPrefix(const std::string& foo, const std::string& foobar);
 
   void loadPairings(std::istream& in);
-  static bool  isPrefix(const std::string& foo, const std::string& foobar);
+  void loadCrmEvents(std::istream& in);
+
+  int numOfCrms(){
+    return crmEvents.size();
+  }
+
+  /*  const std::vector<CrmEvents>& getCrmEvents(){ 
+    return crmEvents;
+    }*/
+
 
   int size(){
     return container.size();
@@ -50,7 +83,7 @@ class MyClass{
     return container.count(key);
   }
 
-  bool selfPrefix();
+  int selfPrefix();
 
   void run(std::istream& pairings,
 	   std::istream& legs,

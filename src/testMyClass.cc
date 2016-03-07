@@ -18,6 +18,18 @@ TEST (testPairing, testPairing1)
   ASSERT_EQ("id1",a1.getId());
   ASSERT_EQ("aId1",a1.getAId());
 }
+
+TEST (testCrmEvents, testCrmEvents1)
+{
+  MyClass::CrmEvents a;
+  a.setTlc("tlc1");
+  ASSERT_EQ("tlc1",a.getTlc());
+  a.addEvent("event1");
+  a.addEvent("event2");
+  ASSERT_EQ(2,a.numOfEvents());
+  a.setTlc("tlc2");
+  ASSERT_EQ(0,a.numOfEvents());
+}
 TEST (testLoad, testLoad1){
 
   {
@@ -77,7 +89,7 @@ TEST (testLoad, testLoad1){
     a.loadPairings(ss);
     ASSERT_TRUE(a.isKey("key2"));
     ASSERT_FALSE(a.isKey("key3"));
-    ASSERT_FALSE(a.selfPrefix());
+    ASSERT_EQ(0, a.selfPrefix());
   }
   {
     stringstream ss;
@@ -94,10 +106,26 @@ TEST (testLoad, testLoad1){
     //not a real prefix of another key
     ASSERT_FALSE(a.isPrefixInMap("key1",true));
 
-    ASSERT_TRUE(a.selfPrefix());
+    ASSERT_EQ(2, a.selfPrefix());
   }
 }
+TEST (testLoadEvents, testLoadEvents)
+{
+  {
 
+    stringstream legs;
+    legs << "tlc1,leg1\n";
+    legs << "tlc1,leg2\n";
+    legs << "tlc1,leg3\n";
+    legs << "tlc2,leg1\n";
+    legs << "tlc2,leg2\n";
+    legs << "tlc3,leg1\n";
+    MyClass a;
+    a.loadCrmEvents(legs);
+    ASSERT_EQ(3,a.numOfCrms()); 
+    ASSERT_EQ(3, a.crmEvents[0].numOfEvents());
+  }
+}
 TEST (testRun, testRun1)
 {
   {

@@ -10,11 +10,11 @@ void MyClass::loadPairings(istream& in){
   container.clear();
   const int maxSize = 512;
   char line[maxSize];
-  char pId[maxSize], pAID[maxSize];
+  char pId[maxSize], pAId[maxSize];
 
   while (in.getline(pId,maxSize,',') 
-	 && in.getline(pAid,maxSize)){
-    Pairing a(pId,pAid);
+	 && in.getline(pAId,maxSize)){
+    Pairing a(pId,pAId);
     if(container.count(pId)){
       cerr << "Error: Key non-unique " << pId <<endl;
       duplicate++;
@@ -83,7 +83,8 @@ bool MyClass::isPrefixInMap(string searchFor, bool realPrefix){
     }
 }
 
-bool MyClass::selfPrefix(){
+int MyClass::selfPrefix(){
+  _selfPrefix = 0;
   for (SSMap::iterator it = container.begin();
        it!= container.end();++it){
     string key = it->first;
@@ -91,11 +92,11 @@ bool MyClass::selfPrefix(){
     if (isPrefixInMap(key,true)){
       cerr << "This key is a prefix of another one: \n";
       cerr << key << endl;
-      return true;
+      _selfPrefix ++;
     }
   }
   
-  return false;
+  return _selfPrefix;
 }
 
 void MyClass::run(std::istream& pairings,
@@ -111,23 +112,45 @@ void MyClass::run(std::istream& pairings,
       cerr << "Problems with the pairings."<< endl;
       exit(1);
     }
+
+  loadCrmEvents(legs);
+}
+
+void MyClass::loadCrmEvents(istream& legs)
+{
+  crmEvents.clear();
+
   string curKey = "";
   const int maxSize = 512;
   char tlc[maxSize] = "";
   char leg[maxSize] = "";
   string lTlc = tlc;
-  
+  CrmEvents a;
+
   while (legs.getline(tlc,maxSize,',')
 	 && legs.getline(leg,maxSize))
     {
       string curTlc = tlc;
       if (lTlc != curTlc)
 	{
-	  cout << "New crm: "<< curTlc << endl;
+	  //cout << "New crm: "<< curTlc << endl;
+	  if (lTlc != ""){
+	    crmEvents.push_back(a);
+	  }
 	  
-
 	  lTlc = curTlc;
+	  a.setTlc(lTlc);
+	  a.addEvent(leg);
 	}
-      cout << "tlc: "<< tlc<< ", leg: "<< leg << endl;
+      else
+	{
+	  a.addEvent(leg);
+	}
+      //cout << "tlc: "<< tlc<< ", leg: "<< leg << endl;
     }
+  //write last tlc, if there was anything in the file at all
+  if (lTlc != ""){
+    crmEvents.push_back(a);
+  }
+
 }
