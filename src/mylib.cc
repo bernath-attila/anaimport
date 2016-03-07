@@ -40,7 +40,7 @@ void MyClass::loadPairings(istream& in){
 
 void MyClass::Pairing::parseCrcString(const std::string& crcString)
 {
-  if (std::count(crcString.begin(), crcString.end(), '|') != 12)
+  if (std::count(crcString.begin(), crcString.end(), '|') != 11)
     {
       cerr << "Failure parsing crcString (num of separators): "
 	+ crcString << endl;
@@ -48,6 +48,7 @@ void MyClass::Pairing::parseCrcString(const std::string& crcString)
     }
   string s = crcString;
   std::replace(s.begin(),s.end(),'|',' ');
+  s += ' ';
   std::istringstream ss(s);
   int crcComp;
   for (int i = 0; i < 12; ++i)
@@ -135,6 +136,8 @@ int MyClass::selfPrefix(){
   return _selfPrefix;
 }
 
+
+
 void MyClass::run(std::istream& pairings,
 	   std::istream& legs,
 	   std::ostream& output)
@@ -160,13 +163,23 @@ void MyClass::loadCrmEvents(istream& legs)
   const int maxSize = 512;
   char tlc[maxSize] = "";
   char leg[maxSize] = "";
+  char rankStr[maxSize] = "";
+  
   string lTlc = tlc;
   CrmEvents a;
 
   while (legs.getline(tlc,maxSize,',')
-	 && legs.getline(leg,maxSize))
+	 && legs.getline(leg,maxSize,',')
+	 && legs.getline(rankStr,maxSize))
     {
+      stringstream is;
+      is << rankStr;
+      int rank;
+      is >> rank;
+
       string curTlc = tlc;
+      CrmEvents::Event evt(leg,rank);
+  
       if (lTlc != curTlc)
 	{
 	  //cout << "New crm: "<< curTlc << endl;
@@ -176,13 +189,13 @@ void MyClass::loadCrmEvents(istream& legs)
 	  
 	  lTlc = curTlc;
 	  a.setTlc(lTlc);
-	  a.addEvent(leg);
+	  a.addEvent(evt);
 	}
       else
 	{
-	  a.addEvent(leg);
+	  a.addEvent(evt);
 	}
-      //cout << "tlc: "<< tlc<< ", leg: "<< leg << endl;
+      cerr << "tlc: "<< tlc<< ", leg: "<< leg << ", rank: " << rank << endl;
     }
   //write last tlc, if there was anything in the file at all
   if (lTlc != ""){

@@ -36,9 +36,23 @@ class MyClass{
   };  
 
   class CrmEvents{
+  public:
+    class Event{
+      std::string eventId;
+      int rank;
+    public:
+      Event(const std::string& _eventId,
+	    int _rank){
+	eventId = _eventId;
+	rank = _rank;
+      }
+      const std::string& getEventId(){return eventId;}
+      int getRank(){return rank;}
+    }; 
+  private:
     std::string tlc;
-    typedef std::string Event; 
-    std::vector<std::string> events;
+    //typedef std::string 
+    std::vector<Event> events;
   public:
     void setTlc(const std::string& _tlc){
       events.clear();
@@ -51,6 +65,7 @@ class MyClass{
     void addEvent(const Event& event){
       events.push_back(event);
     }
+
     int numOfEvents(){
       return events.size();
     }
@@ -85,6 +100,8 @@ class MyClass{
   int numOfPairingsWithKey(const std::string& key){
     return pairingMap[key].size();
   }
+
+  
   bool isPrefixInMap(std::string key, bool realPrefix = false);
 
   int getLoadFailures()

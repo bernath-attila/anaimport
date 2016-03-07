@@ -13,8 +13,8 @@ TEST (test1, test11){
 
 TEST (testPairing, testPairing1)
 {
-  MyClass::Pairing a1("id1","aId1","0|2|0|0|0|0|0|0|0|0|0|4|");
-  MyClass::Pairing a2("id2","aId2","0|0|0|0|0|0|0|0|0|0|0|0|");
+  MyClass::Pairing a1("id1","aId1","0|2|0|0|0|0|0|0|0|0|0|4");
+  MyClass::Pairing a2("id2","aId2","0|0|0|0|0|0|0|0|0|0|0|0");
   ASSERT_EQ("id1",a1.getId());
   ASSERT_EQ("aId1",a1.getAId());
   ASSERT_EQ(0,a1.getCrc(0));
@@ -25,10 +25,11 @@ TEST (testPairing, testPairing1)
 TEST (testCrmEvents, testCrmEvents1)
 {
   MyClass::CrmEvents a;
+  
   a.setTlc("tlc1");
   ASSERT_EQ("tlc1",a.getTlc());
-  a.addEvent("event1");
-  a.addEvent("event2");
+  a.addEvent(MyClass::CrmEvents::Event("event1",1));
+  a.addEvent(MyClass::CrmEvents::Event("event2",3));
   ASSERT_EQ(2,a.numOfEvents());
   a.setTlc("tlc2");
   ASSERT_EQ(0,a.numOfEvents());
@@ -37,8 +38,8 @@ TEST (testLoad, testLoad1){
 
   {
     stringstream ss;
-    ss << "key1,value1,0|0|0|0|0|0|0|0|0|0|0|0|\n";
-    ss << "key2,value2,0|0|0|0|0|0|0|0|0|0|0|0|\n";
+    ss << "key1,value1,0|0|0|0|0|0|0|0|0|0|0|0\n";
+    ss << "key2,value2,0|0|0|0|0|0|0|0|0|0|0|0\n";
  
     MyClass a;
 
@@ -47,9 +48,9 @@ TEST (testLoad, testLoad1){
   }
   {
     stringstream ss;
-    ss << "key1,value1,0|0|0|0|0|0|0|0|0|0|0|0|\n";
-    ss << "key2,value2,0|0|0|0|0|0|0|0|0|0|0|0|\n";
-    ss << "key2,value3,0|0|0|0|0|0|0|0|0|0|0|0|\n";
+    ss << "key1,value1,0|0|0|0|0|0|0|0|0|0|0|0\n";
+    ss << "key2,value2,0|0|0|0|0|0|0|0|0|0|0|0\n";
+    ss << "key2,value3,0|0|0|0|0|0|0|0|0|0|0|0\n";
  
     MyClass a;
 
@@ -62,8 +63,8 @@ TEST (testLoad, testLoad1){
 
   {
     stringstream ss;
-    ss << "key1,value1,0|0|0|0|0|0|0|0|0|0|0|0|\n";
-    ss << "key2,value2,0|0|0|0|0|0|0|0|0|0|0|0|\n";
+    ss << "key1,value1,0|0|0|0|0|0|0|0|0|0|0|0\n";
+    ss << "key2,value2,0|0|0|0|0|0|0|0|0|0|0|0\n";
  
     MyClass a;
 
@@ -86,9 +87,9 @@ TEST (testLoad, testLoad1){
   }
   {
     stringstream ss;
-    ss << "key1,value1,0|0|0|0|0|0|0|0|0|0|0|0|\n";
-    ss << "key2,value2,0|0|0|0|0|0|0|0|0|0|0|0|\n";
-    ss << "bela,value2,0|0|0|0|0|0|0|0|0|0|0|0|\n";
+    ss << "key1,value1,0|0|0|0|0|0|0|0|0|0|0|0\n";
+    ss << "key2,value2,0|0|0|0|0|0|0|0|0|0|0|0\n";
+    ss << "bela,value2,0|0|0|0|0|0|0|0|0|0|0|0\n";
 
     MyClass a;
     a.loadPairings(ss);
@@ -98,12 +99,12 @@ TEST (testLoad, testLoad1){
   }
   {
     stringstream ss;
-    ss << "key1,value1,0|0|0|0|0|0|0|0|0|0|0|0|\n";
-    ss << "key2,value2,0|0|0|0|0|0|0|0|0|0|0|0|\n";
-    ss << "key,value2,0|0|0|0|0|0|0|0|0|0|0|0|\n";
-    ss << "bela,value2,0|0|0|0|0|0|0|0|0|0|0|0|\n";
-    ss << "bel,value2,0|0|0|0|0|0|0|0|0|0|0|0|\n";
-    ss << "cucc,value3,0|0|0|0|0|0|0|0|0|0|0|0|\n";
+    ss << "key1,value1,0|0|0|0|0|0|0|0|0|0|0|0\n";
+    ss << "key2,value2,0|0|0|0|0|0|0|0|0|0|0|0\n";
+    ss << "key,value2,0|0|0|0|0|0|0|0|0|0|0|0\n";
+    ss << "bela,value2,0|0|0|0|0|0|0|0|0|0|0|0\n";
+    ss << "bel,value2,0|0|0|0|0|0|0|0|0|0|0|0\n";
+    ss << "cucc,value3,0|0|0|0|0|0|0|0|0|0|0|0\n";
 
     MyClass a;
     a.loadPairings(ss);
@@ -127,12 +128,12 @@ TEST (testLoadEvents, testLoadEvents)
   {
 
     stringstream legs;
-    legs << "tlc1,leg1\n";
-    legs << "tlc1,leg2\n";
-    legs << "tlc1,leg3\n";
-    legs << "tlc2,leg1\n";
-    legs << "tlc2,leg2\n";
-    legs << "tlc3,leg1\n";
+    legs << "tlc1,leg1,1\n";
+    legs << "tlc1,leg2,2\n";
+    legs << "tlc1,leg3,1\n";
+    legs << "tlc2,leg1,1\n";
+    legs << "tlc2,leg2,3\n";
+    legs << "tlc3,leg1,4\n";
     MyClass a;
     a.loadCrmEvents(legs);
     ASSERT_EQ(3,a.numOfCrms()); 
@@ -145,15 +146,15 @@ TEST (testRun, testRun1)
   {
 
     stringstream legs;
-    legs << "tlc1,leg1\n";
-    legs << "tlc1,leg2\n";
-    legs << "tlc1,leg3\n";
-    legs << "tlc2,leg1\n";
-    legs << "tlc2,leg2\n";
+    legs << "tlc1,leg1,1\n";
+    legs << "tlc1,leg2,1\n";
+    legs << "tlc1,leg3,2\n";
+    legs << "tlc2,leg1,2\n";
+    legs << "tlc2,leg2,2\n";
 
     stringstream pairings;
-    pairings << "leg1leg2,aid1,0|0|0|0|0|0|0|0|0|0|0|0|\n";
-    pairings << "leg3,aid2,0|0|0|0|0|0|0|0|0|0|0|0|\n";
+    pairings << "leg1leg2,aid1,0|0|0|0|0|0|0|0|0|0|0|0\n";
+    pairings << "leg3,aid2,0|0|0|0|0|0|0|0|0|0|0|0\n";
  
     MyClass a;
     a.run(pairings,legs,cout);
