@@ -91,6 +91,7 @@ void MyClass::loadCrmEvents(istream& legs)
 
 }
 
+koko: this should not check rank at all, but only checkPairing should do that
 void MyClass::findPairings(const MyClass::CrmEvents::Event& evt,
 			   vector<MyClass::Pairing>& foundPairings)
 {
@@ -107,9 +108,15 @@ void MyClass::findPairings(const MyClass::CrmEvents::Event& evt,
 
       for (vector<Pairing>::iterator it2 = it->second.begin();
 	   it2 != it->second.end(); ++it2){
-	if (it2->getCrc(evt.getRank()) > 0)
+	if (evt.getType() == 'F'){// we don't know the rank -> we don't check it
+	  foundPairings.push_back(*it2);
+	}
+	else
 	  {
-	    foundPairings.push_back(*it2);
+	    if (it2->getCrc(evt.getRank()) > 0)
+	      {
+		foundPairings.push_back(*it2);
+	      }
 	  }
       }
       ++it;
@@ -216,13 +223,15 @@ int MyClass::selfPrefix(){
 
 
 bool MyClass::checkPairing(const MyClass::Pairing& pairing,
-			   std::vector<CrmEvents::Event>::iterator& evtIt)
+			   std::vector<CrmEvents::Event>::iterator& evtIt,
+			   //I only need events to check if end was reached
+			   const std::vector<CrmEvents::Event>& events)
 {
   bool result = false;
   std::vector<CrmEvents::Event>::iterator evtItCpy = evtIt;
   int length = pairing.length();
   string key = "";
-  for (int i = 0; i < length && evtItCpy != koko ; ++i){
+  for (int i = 0; i < length && evtItCpy != events.end() ; ++i){
     key += evtItCpy->getId();
     ++evtItCpy;
   }
@@ -265,7 +274,7 @@ void MyClass::run(std::istream& pairings,
 	  
 	  findPairings(*evtIt, possiblePairings);
 	  if (possiblePairings.size() == 1
-	      && checkPairing(possiblePairings[0], evtIt))
+	      && checkPairing(possiblePairings[0], evtIt, crmIt->events))
 	    {
 	      uniquePairing ++;
 	    }

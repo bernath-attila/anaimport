@@ -137,7 +137,9 @@ class MyClass{
 		    std::vector<Pairing>& foundPairings);
   
   static bool checkPairing(const MyClass::Pairing& pairing,
-		    std::vector<CrmEvents::Event>::iterator& evtIt);
+			   std::vector<CrmEvents::Event>::iterator& evtIt,
+			   //I only need events to check if end was reached
+			   const std::vector<CrmEvents::Event>& events);
 
   void run(std::istream& pairings,
 	   std::istream& legs,
