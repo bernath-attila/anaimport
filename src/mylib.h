@@ -30,30 +30,47 @@ class MyClass{
       }
     void parseCrcString(const std::string& crcString);
     int getCrc(int index){ return crc[index];}
-    
-    std::string getId(){ return id;}
-    std::string getAId(){ return aId;}
+    int length() const
+    {
+      return std::count(id.begin(), id.end(),'L') 
+	+ std::count(id.begin(), id.end(),'F');
+    }
+    std::string getId() const { return id;}
+    std::string getAId() const { return aId;}
   };  
 
   class CrmEvents{
   public:
     class Event{
       std::string eventId;
+      char type;
       int rank;
     public:
       Event(const std::string& _eventId,
 	    int _rank){
 	eventId = _eventId;
+	type = eventId[eventId.length()-1];
 	rank = _rank;
       }
-      const std::string& getEventId(){return eventId;}
-      int getRank(){return rank;}
+      const std::string& getId() const {return eventId;}
+      char getType() const{ return type;} 
+      int getRank() const 
+      {
+	if (type == 'F')
+	  {
+	    std::cerr << "Never ask for the rank of a deadhead event." << 
+	      std::endl;
+	    //exception to be thrown and checked
+	    exit(1);
+	  }
+	return rank;
+      }
     }; 
   private:
     std::string tlc;
     //typedef std::string 
-    std::vector<Event> events;
   public:
+    std::vector<Event> events;
     void setTlc(const std::string& _tlc){
       events.clear();
       tlc = _tlc;
@@ -115,6 +132,12 @@ class MyClass{
   }
 
   int selfPrefix();
+
+  void findPairings(const CrmEvents::Event& evt,
+		    std::vector<Pairing>& foundPairings);
+  
+  static bool checkPairing(const MyClass::Pairing& pairing,
+		    std::vector<CrmEvents::Event>::iterator& evtIt);
 
   void run(std::istream& pairings,
 	   std::istream& legs,

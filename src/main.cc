@@ -6,26 +6,14 @@ using namespace std;
 
 int main(){
   {
-    stringstream ss;
-    ss << "key1,value1\n";
-    ss << "key2,value2\n";
- 
-  MyClass a;
-
-  a.loadPairings(ss);
-	cout << "Hi" << endl;
-  }
-  {
-    ifstream pairingsFile;
-    pairingsFile.open("/home/athos/git/ANAData/legs_key_to_pairing_key.csv");
+    ifstream pairingsStream;
+    pairingsStream.open("/home/athos/git/ANAData/legs_key_to_pairing_key.csv");
+    ifstream crmEventsStream;
+    crmEventsStream.open("/home/athos/git/ANAData/CrewCode_LegKey.csv");
     MyClass a;
 
-    a.loadPairings(pairingsFile);
-    //
-    cout << "Number of duplicate keys: " << a.getLoadFailures() << endl;
-    int prefixes = a.selfPrefix();
-    cout << "Number of prefix keys: " << prefixes << endl;
-
+    a.run(pairingsStream,crmEventsStream,cout);
+    
 
   }
   return 0;

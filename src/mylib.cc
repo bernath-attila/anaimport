@@ -12,16 +12,21 @@ void MyClass::loadPairings(istream& in){
   
   char pId[maxSize], pAId[maxSize],crcString[maxSize];
 
-  /*
-  //string firstLine;
+  string expectedHeader = "#pairing_id,pairing_aid,crc_positions";
+  string firstLine;
   //check header
   if (!std::getline(in,firstLine)
-      || firstLine != "#pairing_id,pairing_aid,crc_string")
+      || firstLine != expectedHeader)
     {
+      
       cerr << "Pairing file header is not as expected." << endl;
+      cerr << "Header: " << endl;
+      cerr << firstLine << endl;
+      cerr << "Expected header: " << endl;
+      cerr << expectedHeader << endl;
       exit(1);
     }
-  */
+  
 
 
   while (in.getline(pId,maxSize,',') 
@@ -37,7 +42,80 @@ void MyClass::loadPairings(istream& in){
   }
 }
 
+void MyClass::loadCrmEvents(istream& legs)
+{
+  crmEvents.clear();
 
+  string curKey = "";
+  const int maxSize = 512;
+  char tlc[maxSize] = "";
+  char leg[maxSize] = "";
+  char rankStr[maxSize] = "";
+  
+  string lTlc = tlc;
+  CrmEvents a;
+
+  while (legs.getline(tlc,maxSize,',')
+	 && legs.getline(leg,maxSize,',')
+	 && legs.getline(rankStr,maxSize))
+    {
+      stringstream is;
+      is << rankStr;
+      int rank;
+      is >> rank;
+
+      string curTlc = tlc;
+      CrmEvents::Event evt(leg,rank);
+  
+      if (lTlc != curTlc)
+	{
+	  //cout << "New crm: "<< curTlc << endl;
+	  if (lTlc != ""){
+	    crmEvents.push_back(a);
+	  }
+	  
+	  lTlc = curTlc;
+	  a.setTlc(lTlc);
+	  a.addEvent(evt);
+	}
+      else
+	{
+	  a.addEvent(evt);
+	}
+      //cerr << "tlc: "<< tlc<< ", leg: "<< leg << ", rank: " << rank << endl;
+    }
+  //write last tlc, if there was anything in the file at all
+  if (lTlc != ""){
+    crmEvents.push_back(a);
+  }
+
+}
+
+void MyClass::findPairings(const MyClass::CrmEvents::Event& evt,
+			   vector<MyClass::Pairing>& foundPairings)
+{
+  foundPairings.clear();
+  SSMap::iterator it = pairingMap.lower_bound(evt.getId());
+  while (it != pairingMap.end()
+	 && isPrefix(evt.getId(),it->first))
+    {
+      //if we don't consider crc then this is it:
+      //foundPairings.insert(foundPairings.end(),
+      //it->second.begin(),
+      //it->second.end());
+      // end if we don!t consider
+
+      for (vector<Pairing>::iterator it2 = it->second.begin();
+	   it2 != it->second.end(); ++it2){
+	if (it2->getCrc(evt.getRank()) > 0)
+	  {
+	    foundPairings.push_back(*it2);
+	  }
+      }
+      ++it;
+    }
+
+}
 void MyClass::Pairing::parseCrcString(const std::string& crcString)
 {
   if (std::count(crcString.begin(), crcString.end(), '|') != 11)
@@ -137,6 +215,25 @@ int MyClass::selfPrefix(){
 }
 
 
+bool MyClass::checkPairing(const MyClass::Pairing& pairing,
+			   std::vector<CrmEvents::Event>::iterator& evtIt)
+{
+  bool result = false;
+  std::vector<CrmEvents::Event>::iterator evtItCpy = evtIt;
+  int length = pairing.length();
+  string key = "";
+  for (int i = 0; i < length && evtItCpy != koko ; ++i){
+    key += evtItCpy->getId();
+    ++evtItCpy;
+  }
+  
+  if (key == pairing.getId())
+    {
+      result = true;
+      evtIt = evtItCpy;
+    }
+  return result;
+}
 
 void MyClass::run(std::istream& pairings,
 	   std::istream& legs,
@@ -145,61 +242,43 @@ void MyClass::run(std::istream& pairings,
   //load pairings
   loadPairings(pairings);
   //check the pairings
-  if (getLoadFailures()>0
-      || selfPrefix())
-    {
-      cerr << "Problems with the pairings."<< endl;
-      exit(1);
-    }
+  // if (getLoadFailures()>0
+  //     || selfPrefix())
+  //   {
+  //     cerr << "Problems with the pairings."<< endl;
+  //     exit(1);
+  //   }
 
+  //cerr << "Loaded pairings."<< endl;
+  
+  int uniquePairing = 0;
   loadCrmEvents(legs);
-}
-
-void MyClass::loadCrmEvents(istream& legs)
-{
-  crmEvents.clear();
-
-  string curKey = "";
-  const int maxSize = 512;
-  char tlc[maxSize] = "";
-  char leg[maxSize] = "";
-  char rankStr[maxSize] = "";
-  
-  string lTlc = tlc;
-  CrmEvents a;
-
-  while (legs.getline(tlc,maxSize,',')
-	 && legs.getline(leg,maxSize,',')
-	 && legs.getline(rankStr,maxSize))
+  //cerr << "Loaded CrmEvents."<< endl;
+  for (std::vector<CrmEvents>::iterator crmIt = crmEvents.begin();
+       crmIt != crmEvents.end(); ++crmIt)
     {
-      stringstream is;
-      is << rankStr;
-      int rank;
-      is >> rank;
-
-      string curTlc = tlc;
-      CrmEvents::Event evt(leg,rank);
-  
-      if (lTlc != curTlc)
+      cout << "Processing crm> " << crmIt->getTlc() << endl;
+      std::vector<CrmEvents::Event>::iterator evtIt = crmIt->events.begin();
+      while (evtIt != crmIt->events.end())
 	{
-	  //cout << "New crm: "<< curTlc << endl;
-	  if (lTlc != ""){
-	    crmEvents.push_back(a);
-	  }
+	  vector<MyClass::Pairing> possiblePairings;
 	  
-	  lTlc = curTlc;
-	  a.setTlc(lTlc);
-	  a.addEvent(evt);
+	  findPairings(*evtIt, possiblePairings);
+	  if (possiblePairings.size() == 1
+	      && checkPairing(possiblePairings[0], evtIt))
+	    {
+	      uniquePairing ++;
+	    }
+	  else
+	    {
+	  //cout << "Found " << possiblePairings.size() << " pairings." << endl;
+	      evtIt = crmIt->events.end();
+	      
+	    }
 	}
-      else
-	{
-	  a.addEvent(evt);
-	}
-      cerr << "tlc: "<< tlc<< ", leg: "<< leg << ", rank: " << rank << endl;
     }
-  //write last tlc, if there was anything in the file at all
-  if (lTlc != ""){
-    crmEvents.push_back(a);
-  }
 
+  cout << "Unique pairing found for " << uniquePairing << " crew members." 
+       << endl;
 }
+
