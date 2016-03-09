@@ -29,7 +29,7 @@ class MyClass{
 	parseCrcString(crcString);
       }
     void parseCrcString(const std::string& crcString);
-    int getCrc(int index){ return crc[index];}
+    int getCrc(int index) const { return crc[index];}
     int length() const
     {
       return std::count(id.begin(), id.end(),'L') 
@@ -37,6 +37,8 @@ class MyClass{
     }
     std::string getId() const { return id;}
     std::string getAId() const { return aId;}
+    bool onlyDeadHeads() const 
+    { return (std::count(id.begin(), id.end(),'L') == 0);}
   };  
 
   class CrmEvents{
@@ -137,9 +139,14 @@ class MyClass{
 		    std::vector<Pairing>& foundPairings);
   
   static bool checkPairing(const MyClass::Pairing& pairing,
-			   std::vector<CrmEvents::Event>::iterator& evtIt,
-			   //I only need events to check if end was reached
-			   const std::vector<CrmEvents::Event>& events);
+			   std::vector<CrmEvents::Event>::iterator evtItCpy,
+			   //to check if end was reached
+			   const std::vector<CrmEvents::Event>::iterator& endIt);
+
+  static void filterPairings(const std::vector<CrmEvents::Event>::iterator& evtIt,
+		      const std::vector<CrmEvents::Event>::iterator& endIt,
+		      const std::vector<Pairing>& possiblePairings,
+		      std::map<std::string, Pairing>& filteredPairings);
 
   void run(std::istream& pairings,
 	   std::istream& legs,

@@ -38,6 +38,10 @@ void MyClass::loadPairings(istream& in){
       duplicate++;
       //exit (EXIT_FAILURE);
     }
+    if (a.onlyDeadHeads()){
+      cerr << "Only deadheads: "<< a.getId() << endl;
+      exit(1);
+    }
     pairingMap[pId].push_back(a);
   }
 }
@@ -91,7 +95,7 @@ void MyClass::loadCrmEvents(istream& legs)
 
 }
 
-koko: this should not check rank at all, but only checkPairing should do that
+
 void MyClass::findPairings(const MyClass::CrmEvents::Event& evt,
 			   vector<MyClass::Pairing>& foundPairings)
 {
@@ -108,16 +112,20 @@ void MyClass::findPairings(const MyClass::CrmEvents::Event& evt,
 
       for (vector<Pairing>::iterator it2 = it->second.begin();
 	   it2 != it->second.end(); ++it2){
-	if (evt.getType() == 'F'){// we don't know the rank -> we don't check it
-	  foundPairings.push_back(*it2);
-	}
-	else
-	  {
-	    if (it2->getCrc(evt.getRank()) > 0)
-	      {
-		foundPairings.push_back(*it2);
-	      }
-	  }
+	// we don't check the rank here
+	foundPairings.push_back(*it2);
+	
+	// if (evt.getType() == 'F'){
+	// we don't know the rank for a deadhead -> we don't check it
+	//   foundPairings.push_back(*it2);
+	// }
+	// else
+	//   {
+	//     if (it2->getCrc(evt.getRank()) > 0)
+	// 	foundPairings.push_back(*it2);
+	//       {
+	//       }
+	//   }
       }
       ++it;
     }
@@ -223,25 +231,64 @@ int MyClass::selfPrefix(){
 
 
 bool MyClass::checkPairing(const MyClass::Pairing& pairing,
-			   std::vector<CrmEvents::Event>::iterator& evtIt,
-			   //I only need events to check if end was reached
-			   const std::vector<CrmEvents::Event>& events)
+			   std::vector<CrmEvents::Event>::iterator evtItCpy,
+			   //to check if end was reached
+			   const std::vector<CrmEvents::Event>::iterator& endIt)
 {
   bool result = false;
-  std::vector<CrmEvents::Event>::iterator evtItCpy = evtIt;
+  //std::vector<CrmEvents::Event>::iterator evtItCpy = evtIt;
   int length = pairing.length();
   string key = "";
-  for (int i = 0; i < length && evtItCpy != events.end() ; ++i){
+  int rank = -1;
+  for (int i = 0; i < length && evtItCpy != endIt ; ++i){
     key += evtItCpy->getId();
+    if (evtItCpy->getType() != 'F')
+      {// we check the rank
+	if (rank != -1
+	    && rank != evtItCpy->getRank())
+	  {
+	    cerr << "Rank has changed along the pairing." << endl;
+	    return false;
+	  }
+	rank = evtItCpy->getRank();
+      }
     ++evtItCpy;
   }
   
-  if (key == pairing.getId())
+  //We should check this in loadPairings
+  if (rank == -1)
+    {
+      cerr << "This pairing only had deadheads: " << pairing.getId() << endl;
+      exit(1);
+    }
+
+  if (key == pairing.getId() && pairing.getCrc(rank) > 0)
     {
       result = true;
-      evtIt = evtItCpy;
+    }
+  else
+    {
+      result = false;
+      
     }
   return result;
+}
+
+void MyClass::filterPairings(const std::vector<MyClass::CrmEvents::Event>::iterator& evtIt,
+			     const std::vector<CrmEvents::Event>::iterator& endIt,
+			     const vector<MyClass::Pairing>& possiblePairings,
+			     map<string, MyClass::Pairing>& filteredPairings)
+{
+  for (vector<MyClass::Pairing>::const_iterator it = possiblePairings.begin();
+       it != possiblePairings.end(); ++it)
+    {
+      if (checkPairing(*it, evtIt, endIt))
+	{
+	  filteredPairings.insert(map<string, 
+				  MyClass::Pairing>::value_type(it->getId(), 
+								*it)); 
+	}
+    }
 }
 
 void MyClass::run(std::istream& pairings,
@@ -261,6 +308,9 @@ void MyClass::run(std::istream& pairings,
   //cerr << "Loaded pairings."<< endl;
   
   int uniquePairing = 0;
+  int  noPairingFound = 0;
+  int nonuniquePairing = 0;
+
   loadCrmEvents(legs);
   //cerr << "Loaded CrmEvents."<< endl;
   for (std::vector<CrmEvents>::iterator crmIt = crmEvents.begin();
@@ -273,21 +323,38 @@ void MyClass::run(std::istream& pairings,
 	  vector<MyClass::Pairing> possiblePairings;
 	  
 	  findPairings(*evtIt, possiblePairings);
-	  if (possiblePairings.size() == 1
-	      && checkPairing(possiblePairings[0], evtIt, crmIt->events))
+	  map<string, MyClass::Pairing> filteredPairings;
+	  filterPairings(evtIt, crmIt->events.end(), 
+			 possiblePairings, filteredPairings);
+	  
+	  
+	  if (filteredPairings.size() == 1)
 	    {
 	      uniquePairing ++;
+	      int length = filteredPairings.begin()->second.length();
+	      for (int i=0;i<length;++i){++evtIt;}
 	    }
 	  else
 	    {
-	  //cout << "Found " << possiblePairings.size() << " pairings." << endl;
+	      if (filteredPairings.size() == 0)
+		{
+		  noPairingFound ++;
+		}	      
+	      else
+		{
+		  nonuniquePairing ++;
+		}
 	      evtIt = crmIt->events.end();
 	      
 	    }
 	}
     }
 
-  cout << "Unique pairing found for " << uniquePairing << " crew members." 
+  cout << "Unique pairing found in " << uniquePairing << " cases." 
+       << endl;
+  cout << "No pairing found in " << noPairingFound << " cases." 
+       << endl;
+  cout << "No unique pairing found in " << nonuniquePairing << " cases." 
        << endl;
 }
 

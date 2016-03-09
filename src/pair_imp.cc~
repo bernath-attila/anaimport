@@ -1,0 +1,6 @@
+
+#include "pair_imp.h"
+
+void PairingImport::parseInutLine(const std::string& line)
+{
+}
