@@ -12,7 +12,8 @@ target_link_libraries(testMyClass gtest gtest_main)
 add_test(testMyClass testMyClass)
 
 add_library(pair_imp pair_imp.cc)
-#add_executable(testMyClass testMyClass.cc)
-#target_link_libraries(testMyClass mylib)
-#target_link_libraries(testMyClass gtest gtest_main)
-#add_test(testMyClass testMyClass)
+add_executable(testPairingImport testPairingImport.cc)
+target_link_libraries(testPairingImport pair_imp)
+target_link_libraries(testPairingImport gtest gtest_main)
+add_test(testPairingImport testPairingImport)
+
