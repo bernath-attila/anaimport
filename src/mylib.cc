@@ -255,14 +255,15 @@ bool MyClass::checkPairing(const MyClass::Pairing& pairing,
     ++evtItCpy;
   }
   
-  //We should check this in loadPairings
-  if (rank == -1)
+  //This case should never happen: it is already checked in loadPairings
+  if (key == pairing.getId() && rank == -1)
     {
       cerr << "This pairing only had deadheads: " << pairing.getId() << endl;
       exit(1);
     }
 
-  if (key == pairing.getId() && pairing.getCrc(rank) > 0)
+  if (key == pairing.getId())
+    //rank checking omitted && pairing.getCrc(rank) > 0)
     {
       result = true;
     }
@@ -291,9 +292,38 @@ void MyClass::filterPairings(const std::vector<MyClass::CrmEvents::Event>::itera
     }
 }
 
+int  MyClass::getRankAndMove(std::vector<CrmEvents::Event>::iterator& evtIt, 
+		   int length){
+  int assignedRank = -1;
+
+    for (int i = 0; i < length; ++i)
+    {
+      if (evtIt->getType() != 'F')
+	{
+	  assignedRank = evtIt->getRank();
+	}
+      ++evtIt;
+    }
+
+  return assignedRank;
+}
+
+std::string MyClass::printRprgLine(const std::string& tlc,
+			  const std::string& aId,
+			  const int rank)
+{
+  string result = "RPRG|" + tlc + "|N|" + aId + "|";
+  
+  ostringstream convert;
+  convert << rank;
+  result += convert.str() + "|N|N";
+  cout << result << endl;
+  return result;
+}
+
 void MyClass::run(std::istream& pairings,
-	   std::istream& legs,
-	   std::ostream& output)
+		  std::istream& legs,
+		  std::ostream& output)
 {
   //load pairings
   loadPairings(pairings);
@@ -304,6 +334,7 @@ void MyClass::run(std::istream& pairings,
   //     cerr << "Problems with the pairings."<< endl;
   //     exit(1);
   //   }
+  loadCrmEvents(legs);
 
   //cerr << "Loaded pairings."<< endl;
   
@@ -311,7 +342,9 @@ void MyClass::run(std::istream& pairings,
   int  noPairingFound = 0;
   int nonuniquePairing = 0;
 
-  loadCrmEvents(legs);
+  int assignedEvents = 0;
+  int unAssignedEvents = 0;
+
   //cerr << "Loaded CrmEvents."<< endl;
   for (std::vector<CrmEvents>::iterator crmIt = crmEvents.begin();
        crmIt != crmEvents.end(); ++crmIt)
@@ -331,8 +364,15 @@ void MyClass::run(std::istream& pairings,
 	  if (filteredPairings.size() == 1)
 	    {
 	      uniquePairing ++;
+	      
 	      int length = filteredPairings.begin()->second.length();
-	      for (int i=0;i<length;++i){++evtIt;}
+	      
+	      int assignedRank = getRankAndMove(evtIt,length);
+	      string rprgLine = printRprgLine(crmIt->getTlc(),
+					      filteredPairings.begin()->second.getAId(),
+					      assignedRank);
+	      output << rprgLine << endl;
+	      assignedEvents += length;
 	    }
 	  else
 	    {
@@ -344,6 +384,7 @@ void MyClass::run(std::istream& pairings,
 		{
 		  nonuniquePairing ++;
 		}
+	      unAssignedEvents += crmIt->events.end() - evtIt;
 	      evtIt = crmIt->events.end();
 	      
 	    }
@@ -355,6 +396,10 @@ void MyClass::run(std::istream& pairings,
   cout << "No pairing found in " << noPairingFound << " cases." 
        << endl;
   cout << "No unique pairing found in " << nonuniquePairing << " cases." 
+       << endl;
+  cout << "Number of assigned events " << assignedEvents << "." 
+       << endl;
+  cout << "Number of unassigned events " << unAssignedEvents << "." 
        << endl;
 }
 

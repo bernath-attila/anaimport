@@ -148,6 +148,12 @@ class MyClass{
 		      const std::vector<Pairing>& possiblePairings,
 		      std::map<std::string, Pairing>& filteredPairings);
 
+  static int getRankAndMove(std::vector<CrmEvents::Event>::iterator& evtIt, 
+			    int length);
+
+  static std::string printRprgLine(const std::string& tlc,
+					    const std::string& aId,
+					    const int rank);
   void run(std::istream& pairings,
 	   std::istream& legs,
 	   std::ostream& output);

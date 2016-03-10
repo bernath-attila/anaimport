@@ -292,6 +292,7 @@ TEST (testCheckPairing, testCheckPairing1)
     ASSERT_FALSE(MyClass::checkPairing(pairing, evtIt,events.end()));
  
   }
+
   {// pairing has no position
     std::vector<MyClass::CrmEvents::Event> events;
     {
@@ -301,7 +302,8 @@ TEST (testCheckPairing, testCheckPairing1)
     std::vector<MyClass::CrmEvents::Event>::iterator evtIt = events.begin();
     MyClass::Pairing pairing("legL","1","1|1|1|0|0|0|0|0|0|0|0|0");
   
-    ASSERT_FALSE(MyClass::checkPairing(pairing, evtIt,events.end()));
+    // rank is not checked
+    ASSERT_TRUE(MyClass::checkPairing(pairing, evtIt,events.end()));
  
   }
   
@@ -322,7 +324,7 @@ TEST (testFilterPairings, testFilterPairings1)
     map<string, MyClass::Pairing> filteredPairings;
     MyClass::filterPairings(evtIt, events.end(), 
 			    possiblePairings, filteredPairings);
-    ASSERT_EQ(0, filteredPairings.size()); 
+    ASSERT_EQ(0, filteredPairings.size());
   }
   { // find one
     std::vector<MyClass::CrmEvents::Event> events;
@@ -345,7 +347,12 @@ TEST (testFilterPairings, testFilterPairings1)
     MyClass::filterPairings(evtIt, events.end(), 
 			    possiblePairings, filteredPairings);
     ASSERT_EQ(1, filteredPairings.size()); 
+    ASSERT_EQ(0, MyClass::getRankAndMove(evtIt, 
+					 filteredPairings.begin()->second.length()));
+    ASSERT_EQ(events.end(), evtIt); 
+
   }
+  /* disabled: rank is not checked
   { //filter out all
     std::vector<MyClass::CrmEvents::Event> events;
     {
@@ -371,7 +378,7 @@ TEST (testFilterPairings, testFilterPairings1)
     MyClass::filterPairings(evtIt, events.end(), 
 			    possiblePairings, filteredPairings);
     ASSERT_EQ(0, filteredPairings.size()); 
-  }
+    }*/
 
   { 
     std::vector<MyClass::CrmEvents::Event> events;
@@ -407,6 +414,9 @@ TEST (testFilterPairings, testFilterPairings1)
     MyClass::filterPairings(evtIt, events.end(), 
 			    possiblePairings, filteredPairings);
     ASSERT_EQ(1, filteredPairings.size()); 
+    ASSERT_EQ(0, MyClass::getRankAndMove(evtIt, 
+					 filteredPairings.begin()->second.length()));
+    ASSERT_EQ(--events.end(), evtIt); 
   }
   { 
     std::vector<MyClass::CrmEvents::Event> events;
@@ -443,6 +453,12 @@ TEST (testFilterPairings, testFilterPairings1)
 			    possiblePairings, filteredPairings);
     ASSERT_EQ(2, filteredPairings.size()); 
   }
+}
+
+TEST (testPrintRprg, testPrintRprg1)
+{
+
+  ASSERT_EQ("RPRG|011|N|012|1|N|N", MyClass::printRprgLine("011","012",1));
 }
 
 TEST (testRun, testRun1)

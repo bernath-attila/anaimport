@@ -12,7 +12,9 @@ int main(){
     crmEventsStream.open("/home/athos/git/ANAData/CrewCode_LegKey.csv");
     MyClass a;
 
-    a.run(pairingsStream,crmEventsStream,cout);
+    ofstream out;
+    out.open("/home/athos/git/ANAData/out/rprg");
+    a.run(pairingsStream,crmEventsStream,out);
     
 
   }
