@@ -60,14 +60,19 @@ class MyPairConv{
       std::string eventId;
       char type;
       int rank;
+      std::string startDt;
+      
     public:
       Event(const std::string& _eventId,
 	    const int _rank){
 	setId(_eventId);
 	setRank(_rank);
       }
-      Event(){}
-      const std::string& getId() const {return eventId;}
+      Event()
+	{
+	  setId("");
+	  setRank(-1);
+	}
       void setId(const std::string& _eventId)
       {
 	eventId = _eventId;
@@ -77,11 +82,12 @@ class MyPairConv{
 	else
 	  type = 'L';
       }
+      const std::string& getId() const {return eventId;}
+      char getType() const{ return type;} 
       void setRank(const int _rank)
       {
 	rank = _rank;
       }
-      char getType() const{ return type;} 
       int getRank() const 
       {
 	if (type == 'F')
@@ -93,6 +99,12 @@ class MyPairConv{
 	  }
 	return rank;
       }
+
+      void setStartDt(const std::string& _startDt)
+      {
+	startDt = _startDt;
+      }      
+      const std::string& getStartDt() const {return startDt;}
     }; 
   private:
     std::string tlc;
@@ -156,6 +168,8 @@ class MyPairConv{
 
   void loadPairings(std::istream& in);
   void loadCrmEvents(std::istream& in);
+
+  void  checkConsecutiveEvents();
 
   int numOfCrms(){
     return crmEvents.size();

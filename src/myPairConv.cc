@@ -176,9 +176,10 @@ void MyPairConv::loadCrewCodeLegKey(istream& infile)
 
       //todo something
       CrmEvents::Event evt;
-      string curTlc = csvValues["ORG_EMP_NUM"];
+      string curTlc = csvValues["emp_num"];
       evt.setId(csvValues["event_newid"]);
       evt.setRank(atoi(csvValues["rank"].c_str()));
+      evt.setStartDt(csvValues["event_start_dt"]);
       if (lTlc != curTlc)
 	{
 	  //cout << "New crm: "<< curTlc << endl;
@@ -200,6 +201,7 @@ void MyPairConv::loadCrewCodeLegKey(istream& infile)
     crmEvents.push_back(a);
   }
 }
+
 void MyPairConv::loadCrmEvents(istream& legs)
 {
   crmEvents.clear();
@@ -249,7 +251,48 @@ void MyPairConv::loadCrmEvents(istream& legs)
 
 }
 
+void  MyPairConv::checkConsecutiveEvents()
+{
+  
+  if (crmEvents.size() == 0)
+    {
+      cerr << "You probably forgot to load the events" << endl;
+      exit(1);
+    }
 
+  map<string, string> keyPairs;
+
+  for (vector<CrmEvents>::iterator it = crmEvents.begin();
+       it != crmEvents.end();
+       ++it)
+    {
+      for (std::vector<CrmEvents::Event>::iterator evtIt = it->events.begin();
+	   evtIt != it->events.end() - 1; ++evtIt)
+	{
+	  std::string key = evtIt->getId() + evtIt->getStartDt() 
+	    + (evtIt+1)->getId();
+	  string value = key + (evtIt+1)->getStartDt();
+	  if (!keyPairs.count(key))
+	    {
+	      keyPairs[key] = value;
+	    }
+	  else
+	    {
+	      if (keyPairs[key] != value)
+		{
+		  cerr  << "Error with consecutive events!" << endl;
+		  cerr << "One event:" << endl;
+		  cerr << keyPairs[key] << endl;
+		  cerr << "Other event: " << endl;
+		  cerr << value << endl;
+		  exit(1);
+		}
+	    }
+	}
+    }
+  
+    
+}
 void MyPairConv::Pairing::parseCrcString(const std::string& crcString)
 {
   if (std::count(crcString.begin(), crcString.end(), '|') != 11)

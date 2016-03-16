@@ -233,7 +233,9 @@ TEST (testLoadCrewCodeLegKey, testLoadCrewCodeLegKey1)
     MyPairConv a;
     a.loadCrewCodeLegKey(legs);
     ASSERT_EQ(2,a.numOfCrms()); 
+    ASSERT_EQ("008301", a.crmEvents[0].getTlc());    
     ASSERT_EQ(2, a.crmEvents[0].numOfEvents());
+    ASSERT_EQ(" OFFA", a.crmEvents[0].events[0].getId());
     ASSERT_EQ(3, a.crmEvents[1].numOfEvents());
   }
 }

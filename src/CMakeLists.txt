@@ -26,3 +26,6 @@ add_test(testMyPairConv testMyPairConv)
 
 add_executable(convertPairings convertPairings.cc)
 target_link_libraries(convertPairings myPairConv)
+
+add_executable(checkConsecutiveEvents checkConsecutiveEvents.cc)
+target_link_libraries(checkConsecutiveEvents myPairConv)
