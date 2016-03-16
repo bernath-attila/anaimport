@@ -19,7 +19,10 @@ add_test(testPairingImport testPairingImport)
 
 
 add_library(myPairConv myPairConv.cc)
-add_executable(testMyPairConv testMyPairConvPairingImport.cc)
+add_executable(testMyPairConv testMyPairConv.cc)
 target_link_libraries(testMyPairConv myPairConv)
 target_link_libraries(testMyPairConv gtest gtest_main)
 add_test(testMyPairConv testMyPairConv)
+
+add_executable(convertPairings convertPairings.cc)
+target_link_libraries(convertPairings myPairConv)

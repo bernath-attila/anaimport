@@ -16,7 +16,7 @@ class MyPairConv{
     std::string id;
     std::string aId;
     std::vector<int> crc;
-
+    
   public:
     Pairing(const std::string& _id, 
 	    const std::string& _aId,
@@ -27,18 +27,31 @@ class MyPairConv{
 	id = _id;
 	aId = _aId;
 	parseCrcString(crcString);
+	if (id.length() % 5 != 0
+	    || id.length() < 15)
+	  {
+	    std::cerr << "Pairing id length not ok." << std::endl;
+	    exit(1);
+	  }
       }
+
     void parseCrcString(const std::string& crcString);
     int getCrc(int index) const { return crc[index];}
     int length() const
     {
-      return std::count(id.begin(), id.end(),'L') 
-	+ std::count(id.begin(), id.end(),'F');
+      return id.length() / 5 - 2;
     }
     std::string getId() const { return id;}
     std::string getAId() const { return aId;}
     bool onlyDeadHeads() const 
-    { return (std::count(id.begin(), id.end(),'L') == 0);}
+    { 
+      for (int i = 0; i < length(); ++i)
+	{
+	  if (id[10 + 2 * i] != 'D')
+	    return false;
+	}
+      return true;
+    }
   };  
 
   class CrmEvents{
@@ -49,12 +62,25 @@ class MyPairConv{
       int rank;
     public:
       Event(const std::string& _eventId,
-	    int _rank){
+	    const int _rank){
+	setId(_eventId);
+	setRank(_rank);
+      }
+      Event(){}
+      const std::string& getId() const {return eventId;}
+      void setId(const std::string& _eventId)
+      {
 	eventId = _eventId;
-	type = eventId[eventId.length()-1];
+	//absence
+	if ('D' == eventId[0])
+	  type = 'F';
+	else
+	  type = 'L';
+      }
+      void setRank(const int _rank)
+      {
 	rank = _rank;
       }
-      const std::string& getId() const {return eventId;}
       char getType() const{ return type;} 
       int getRank() const 
       {
@@ -73,6 +99,7 @@ class MyPairConv{
     //typedef std::string 
   public:
     std::vector<Event> events;
+
     void setTlc(const std::string& _tlc){
       events.clear();
       tlc = _tlc;
@@ -80,7 +107,7 @@ class MyPairConv{
     std::string getTlc(){
       return tlc;
     }
-    
+
     void addEvent(const Event& event){
       events.push_back(event);
     }
@@ -95,10 +122,37 @@ class MyPairConv{
   SSMap pairingMap;
   int duplicate;
   int _selfPrefix;
+
+
  public:
   std::vector<CrmEvents> crmEvents;
 
+  // members for reading csv input
+  std::vector<std::string> headerVector;
+  std::map<std::string, std::string> csvValues;
+
   static bool  isPrefix(const std::string& foo, const std::string& foobar);
+
+
+  // helper for getting a field from a csv file
+  bool nextField(std::stringstream& is,
+			     std::string& fieldValue,
+			     const char separator = ',');
+  static void appendSep(std::string& line,
+			const char separator)
+  {
+    if (line[line.length()-1] != separator)
+      {
+	line += separator;
+      }
+  }
+
+  void parseCsvHeader(std::string& headerLine,
+			     const char separator = ',');
+  void parseCsvLine(std::string& line,
+		    const char separator = ',');
+  void parseOrigCsvFile(std::istream& infile);
+  void loadCrewCodeLegKey(std::istream& infile);
 
   void loadPairings(std::istream& in);
   void loadCrmEvents(std::istream& in);
@@ -135,21 +189,6 @@ class MyPairConv{
 
   int selfPrefix();
 
-  void findPairings(const CrmEvents::Event& evt,
-		    std::vector<Pairing>& foundPairings);
-  
-  static bool checkPairing(const MyPairConv::Pairing& pairing,
-			   std::vector<CrmEvents::Event>::iterator evtItCpy,
-			   //to check if end was reached
-			   const std::vector<CrmEvents::Event>::iterator& endIt);
-
-  static void filterPairings(const std::vector<CrmEvents::Event>::iterator& evtIt,
-		      const std::vector<CrmEvents::Event>::iterator& endIt,
-		      const std::vector<Pairing>& possiblePairings,
-		      std::map<std::string, Pairing>& filteredPairings);
-
-  static int getRankAndMove(std::vector<CrmEvents::Event>::iterator& evtIt, 
-			    int length);
 
   static std::string printRprgLine(const std::string& tlc,
 					    const std::string& aId,

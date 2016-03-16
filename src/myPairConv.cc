@@ -1,7 +1,7 @@
 #include<sstream>
 #include <iostream>
 #include<cstdlib>
-#include "mylib.h"
+#include "myPairConv.h"
 
 using namespace std;
 
@@ -12,7 +12,7 @@ void MyPairConv::loadPairings(istream& in){
   
   char pId[maxSize], pAId[maxSize],crcString[maxSize];
 
-  string expectedHeader = "#pairing_id,pairing_aid,crc_positions";
+  string expectedHeader = "#pairing_newid,pairing_aid,crc_positions";
   string firstLine;
   //check header
   if (!std::getline(in,firstLine)
@@ -24,7 +24,7 @@ void MyPairConv::loadPairings(istream& in){
       cerr << firstLine << endl;
       cerr << "Expected header: " << endl;
       cerr << expectedHeader << endl;
-      exit(1);
+	exit(1);
     }
   
 
@@ -46,6 +46,160 @@ void MyPairConv::loadPairings(istream& in){
   }
 }
 
+bool MyPairConv::nextField(stringstream& is,
+			   string& fieldValue,
+			   const char separator)
+{
+  bool result = false;
+  const int maxSize = 128;
+  //todo: improve this
+  char charArr[maxSize] = "";
+  if (is.getline(charArr, maxSize, separator))
+    result = true;
+  else
+    result = false;
+  fieldValue = charArr;
+  return result;
+}
+
+void MyPairConv::parseCsvLine(std::string& line,
+			      const char separator)
+{
+  csvValues.clear();
+
+
+  line += separator;
+  if (std::count(line.begin(), line.end(), separator) != headerVector.size())
+    {
+      cerr << "Failure parsing csv line (num of separators): "
+	+ line << endl;
+      exit(1);
+    }
+  stringstream is;
+  is << line;
+  string value = "";
+  int i=0;
+  while (nextField(is, value))
+    {
+      csvValues[headerVector[i]] = value;
+      ++i;
+    }
+ 
+  // Just to make sure no duplicate key in headerVector
+  if (csvValues.size() != headerVector.size())
+    {
+      cerr << "Failure parsing csv line (headerVector and csvValues size): "
+	+ line << endl;
+      exit(1);
+    }
+}
+
+void MyPairConv::parseCsvHeader(std::string& headerLine,
+				const char separator)
+{
+
+  headerVector.clear();
+  
+  if (headerLine[0] == '#')
+    {
+      headerLine =headerLine.substr(1);
+    } 
+  //appendSep(headerLine,separator);
+  headerLine += separator;
+
+  stringstream is;
+  is << headerLine;
+  string value = "";
+  while (nextField(is, value))
+    {
+      headerVector.push_back(value);
+    }
+    
+}
+
+void MyPairConv::parseOrigCsvFile(istream& infile)
+{
+  crmEvents.clear();
+  std::string line;
+  
+
+  //check header
+  string expectedHeader = "ORG_EMP_NUM,ORG_AIRLINE_CD,JOB_DT,JOB_NO,CARRIER,JOB_CD,DEP_PLACE,ARR_PLACE,DUTY_CD,DEP_TIME,ARR_TIME,FLT_BASE_DT,FLT_AIRLINE_CD,FLT_NUM_OR_JOB_CD,SCH_DEP_AIRP_CD,SCH_ARR_AIRP_CD,OPE_ODR,RANK";
+  if (!std::getline(infile, line)
+      || line != expectedHeader)
+    {
+      cerr << "Original csv header not as expected: " << endl;
+      cerr << "Header: " << endl;
+      cerr << line << endl;
+      cerr << "Expected: " << endl;
+      cerr << expectedHeader << endl;
+      exit(1);
+    }
+  parseCsvHeader(line);
+  
+  string lTlc = "";
+  while (std::getline(infile, line))
+    {
+      parseCsvLine(line);
+
+      //todo something
+      //CrmEvents::Event evt;
+      string tlc = csvValues["ORG_EMP_NUM"];
+    }
+}
+
+void MyPairConv::loadCrewCodeLegKey(istream& infile)
+{
+  crmEvents.clear();
+  std::string line;
+  
+
+  //check header
+  string expectedHeader = "#emp_num,jod_dt,job_num,event_newid,event_start_dt,event_end_dt,leg_day_of_orig,rank,ORG_EMP_NUM,ORG_AIRLINE_CD,JOB_DT,JOB_NO,CARRIER,JOB_CD,DEP_PLACE,ARR_PLACE,DUTY_CD,DEP_TIME,ARR_TIME,FLT_BASE_DT,FLT_AIRLINE_CD,FLT_NUM_OR_JOB_CD,SCH_DEP_AIRP_CD,SCH_ARR_AIRP_CD,OPE_ODR,RANK";
+
+  if (!std::getline(infile, line)
+      || line != expectedHeader)
+    {
+      cerr << "Original csv header not as expected: " << endl;
+      cerr << "Header: " << endl;
+      cerr << line << endl;
+      cerr << "Expected: " << endl;
+      cerr << expectedHeader << endl;
+      exit(1);
+    }
+  parseCsvHeader(line);
+  CrmEvents a;
+  string lTlc = "";
+  while (std::getline(infile, line))
+    {
+      parseCsvLine(line);
+
+      //todo something
+      CrmEvents::Event evt;
+      string curTlc = csvValues["ORG_EMP_NUM"];
+      evt.setId(csvValues["event_newid"]);
+      evt.setRank(atoi(csvValues["rank"].c_str()));
+      if (lTlc != curTlc)
+	{
+	  //cout << "New crm: "<< curTlc << endl;
+	  if (lTlc != ""){
+	    crmEvents.push_back(a);
+	  }
+	  
+	  lTlc = curTlc;
+	  a.setTlc(lTlc);
+	  a.addEvent(evt);
+	}
+      else
+	{
+	  a.addEvent(evt);
+	}
+    }
+  //write last tlc, if there was anything in the file at all
+  if (lTlc != ""){
+    crmEvents.push_back(a);
+  }
+}
 void MyPairConv::loadCrmEvents(istream& legs)
 {
   crmEvents.clear();
@@ -96,41 +250,6 @@ void MyPairConv::loadCrmEvents(istream& legs)
 }
 
 
-void MyPairConv::findPairings(const MyPairConv::CrmEvents::Event& evt,
-			   vector<MyPairConv::Pairing>& foundPairings)
-{
-  foundPairings.clear();
-  SSMap::iterator it = pairingMap.lower_bound(evt.getId());
-  while (it != pairingMap.end()
-	 && isPrefix(evt.getId(),it->first))
-    {
-      //if we don't consider crc then this is it:
-      //foundPairings.insert(foundPairings.end(),
-      //it->second.begin(),
-      //it->second.end());
-      // end if we don!t consider
-
-      for (vector<Pairing>::iterator it2 = it->second.begin();
-	   it2 != it->second.end(); ++it2){
-	// we don't check the rank here
-	foundPairings.push_back(*it2);
-	
-	// if (evt.getType() == 'F'){
-	// we don't know the rank for a deadhead -> we don't check it
-	//   foundPairings.push_back(*it2);
-	// }
-	// else
-	//   {
-	//     if (it2->getCrc(evt.getRank()) > 0)
-	// 	foundPairings.push_back(*it2);
-	//       {
-	//       }
-	//   }
-      }
-      ++it;
-    }
-
-}
 void MyPairConv::Pairing::parseCrcString(const std::string& crcString)
 {
   if (std::count(crcString.begin(), crcString.end(), '|') != 11)
@@ -169,6 +288,10 @@ bool MyPairConv::isPrefix(const string& foo, const string& foobar){
   }
 }
 
+// If realPrefix = false then
+//   returns true iff searchFor is the prefix of a key in the map
+// If realPrefix is true then
+//   returns true iff searchFor is real prefix of a key in the map 
 bool MyPairConv::isPrefixInMap(string searchFor, bool realPrefix){
   //map<string,string>
   SSMap::iterator it = pairingMap.lower_bound(searchFor);
@@ -220,7 +343,9 @@ int MyPairConv::selfPrefix(){
     string key = it->first;
     
     if (isPrefixInMap(key,true)){
-      cerr << "This key is a prefix of another one: \n";
+      cerr << "This key is a prefix of another one: aid = " 
+	+ it->second[0].getAId()
+	+ ", key: \n";
       cerr << key << endl;
       _selfPrefix ++;
     }
@@ -230,83 +355,6 @@ int MyPairConv::selfPrefix(){
 }
 
 
-bool MyPairConv::checkPairing(const MyPairConv::Pairing& pairing,
-			   std::vector<CrmEvents::Event>::iterator evtItCpy,
-			   //to check if end was reached
-			   const std::vector<CrmEvents::Event>::iterator& endIt)
-{
-  bool result = false;
-  //std::vector<CrmEvents::Event>::iterator evtItCpy = evtIt;
-  int length = pairing.length();
-  string key = "";
-  int rank = -1;
-  for (int i = 0; i < length && evtItCpy != endIt ; ++i){
-    key += evtItCpy->getId();
-    if (evtItCpy->getType() != 'F')
-      {// we check the rank
-	if (rank != -1
-	    && rank != evtItCpy->getRank())
-	  {
-	    cerr << "Rank has changed along the pairing." << endl;
-	    return false;
-	  }
-	rank = evtItCpy->getRank();
-      }
-    ++evtItCpy;
-  }
-  
-  //This case should never happen: it is already checked in loadPairings
-  if (key == pairing.getId() && rank == -1)
-    {
-      cerr << "This pairing only had deadheads: " << pairing.getId() << endl;
-      exit(1);
-    }
-
-  if (key == pairing.getId())
-    //rank checking omitted && pairing.getCrc(rank) > 0)
-    {
-      result = true;
-    }
-  else
-    {
-      result = false;
-      
-    }
-  return result;
-}
-
-void MyPairConv::filterPairings(const std::vector<MyPairConv::CrmEvents::Event>::iterator& evtIt,
-			     const std::vector<CrmEvents::Event>::iterator& endIt,
-			     const vector<MyPairConv::Pairing>& possiblePairings,
-			     map<string, MyPairConv::Pairing>& filteredPairings)
-{
-  for (vector<MyPairConv::Pairing>::const_iterator it = possiblePairings.begin();
-       it != possiblePairings.end(); ++it)
-    {
-      if (checkPairing(*it, evtIt, endIt))
-	{
-	  filteredPairings.insert(map<string, 
-				  MyPairConv::Pairing>::value_type(it->getId(), 
-								*it)); 
-	}
-    }
-}
-
-int  MyPairConv::getRankAndMove(std::vector<CrmEvents::Event>::iterator& evtIt, 
-		   int length){
-  int assignedRank = -1;
-
-    for (int i = 0; i < length; ++i)
-    {
-      if (evtIt->getType() != 'F')
-	{
-	  assignedRank = evtIt->getRank();
-	}
-      ++evtIt;
-    }
-
-  return assignedRank;
-}
 
 std::string MyPairConv::printRprgLine(const std::string& tlc,
 			  const std::string& aId,
@@ -338,68 +386,6 @@ void MyPairConv::run(std::istream& pairings,
 
   //cerr << "Loaded pairings."<< endl;
   
-  int uniquePairing = 0;
-  int  noPairingFound = 0;
-  int nonuniquePairing = 0;
 
-  int assignedEvents = 0;
-  int unAssignedEvents = 0;
-
-  //cerr << "Loaded CrmEvents."<< endl;
-  for (std::vector<CrmEvents>::iterator crmIt = crmEvents.begin();
-       crmIt != crmEvents.end(); ++crmIt)
-    {
-      cout << "Processing crm> " << crmIt->getTlc() << endl;
-      std::vector<CrmEvents::Event>::iterator evtIt = crmIt->events.begin();
-      while (evtIt != crmIt->events.end())
-	{
-	  vector<MyPairConv::Pairing> possiblePairings;
-	  
-	  findPairings(*evtIt, possiblePairings);
-	  map<string, MyPairConv::Pairing> filteredPairings;
-	  filterPairings(evtIt, crmIt->events.end(), 
-			 possiblePairings, filteredPairings);
-	  
-	  
-	  if (filteredPairings.size() == 1)
-	    {
-	      uniquePairing ++;
-	      
-	      int length = filteredPairings.begin()->second.length();
-	      
-	      int assignedRank = getRankAndMove(evtIt,length);
-	      string rprgLine = printRprgLine(crmIt->getTlc(),
-					      filteredPairings.begin()->second.getAId(),
-					      assignedRank);
-	      output << rprgLine << endl;
-	      assignedEvents += length;
-	    }
-	  else
-	    {
-	      if (filteredPairings.size() == 0)
-		{
-		  noPairingFound ++;
-		}	      
-	      else
-		{
-		  nonuniquePairing ++;
-		}
-	      unAssignedEvents += crmIt->events.end() - evtIt;
-	      evtIt = crmIt->events.end();
-	      
-	    }
-	}
-    }
-
-  cout << "Unique pairing found in " << uniquePairing << " cases." 
-       << endl;
-  cout << "No pairing found in " << noPairingFound << " cases." 
-       << endl;
-  cout << "No unique pairing found in " << nonuniquePairing << " cases." 
-       << endl;
-  cout << "Number of assigned events " << assignedEvents << "." 
-       << endl;
-  cout << "Number of unassigned events " << unAssignedEvents << "." 
-       << endl;
 }
 
