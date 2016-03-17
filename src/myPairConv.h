@@ -12,12 +12,84 @@ class MyPairConv{
 
  public:
 
+
+  class ConsecutiveEvtPairs
+  {
+  public:
+    std::string tlc;
+    std::string consEventIdsWithDt;    
+  };
+
+  class Event{
+    std::string eventId;
+    char type;
+    int rank;
+    std::string startDt;
+      
+  public:
+    Event(const std::string& _eventId,
+	  const int _rank){
+      setId(_eventId);
+      setRank(_rank);
+    }
+    Event()
+      {
+	eventId = "";
+	type = 'F';
+	setRank(-1);
+      }
+    void setId(const std::string& _eventId)
+    {
+      eventId = _eventId;
+      //absence
+      if ((eventId.substr(1)).find_first_not_of(" 0123456789") == std::string::npos)
+	{
+	  if ('D' == eventId[0])
+	    type = 'F';
+	  else
+	    type = 'L';
+	}
+      else
+	{
+	  type = 'A';
+	}
+      //      if (isdigit(eventId[1]) && isdigit(eventId[2]) 
+      //	  && isdigit(eventId[3]) && isdigit(eventId[4]))
+    }
+    const std::string& getId() const {return eventId;}
+
+    const std::string getIdWithDt() const {return startDt + eventId;}
+    char getType() const{ return type;} 
+    void setRank(const int _rank)
+    {
+      rank = _rank;
+    }
+    int getRank() const 
+    {
+      if (type == 'F')
+	{
+	  std::cerr << "Never ask for the rank of a deadhead event." << 
+	    std::endl;
+	  //exception to be thrown and checked
+	  exit(1);
+	}
+      return rank;
+    }
+
+    void setStartDt(const std::string& _startDt)
+    {
+      startDt = _startDt;
+    }      
+    const std::string& getStartDt() const {return startDt;}
+  }; 
+
   class Pairing{
     std::string id;
     std::string aId;
     std::vector<int> crc;
-    
+
   public:
+    std::vector<MyPairConv::Event> events;
     Pairing(const std::string& _id, 
 	    const std::string& _aId,
 	    //we expect crcString to be 12 non-negative integers with 12 | 
@@ -35,8 +107,24 @@ class MyPairConv{
 	  }
       }
 
+    void addEvents(std::vector<MyPairConv::Event>::iterator evtIt);
     void parseCrcString(const std::string& crcString);
+    void increaseCrc(const std::vector<int>& otherCrc)
+    {
+      if (crc.size() != 12
+	  || otherCrc.size() != 12)
+	{
+	  std::cerr << "crc length != 12" << std::endl;
+	  exit(1);
+	}
+      for (int i = 0; i < 12; ++i)
+	{
+	  crc[i] += otherCrc[i];
+	}
+    }
+
     int getCrc(int index) const { return crc[index];}
+    const std::vector<int>& getCrc() const {return crc;}
     int length() const
     {
       return id.length() / 5 - 2;
@@ -55,57 +143,6 @@ class MyPairConv{
   };  
 
   class CrmEvents{
-  public:
-    class Event{
-      std::string eventId;
-      char type;
-      int rank;
-      std::string startDt;
-      
-    public:
-      Event(const std::string& _eventId,
-	    const int _rank){
-	setId(_eventId);
-	setRank(_rank);
-      }
-      Event()
-	{
-	  setId("");
-	  setRank(-1);
-	}
-      void setId(const std::string& _eventId)
-      {
-	eventId = _eventId;
-	//absence
-	if ('D' == eventId[0])
-	  type = 'F';
-	else
-	  type = 'L';
-      }
-      const std::string& getId() const {return eventId;}
-      char getType() const{ return type;} 
-      void setRank(const int _rank)
-      {
-	rank = _rank;
-      }
-      int getRank() const 
-      {
-	if (type == 'F')
-	  {
-	    std::cerr << "Never ask for the rank of a deadhead event." << 
-	      std::endl;
-	    //exception to be thrown and checked
-	    exit(1);
-	  }
-	return rank;
-      }
-
-      void setStartDt(const std::string& _startDt)
-      {
-	startDt = _startDt;
-      }      
-      const std::string& getStartDt() const {return startDt;}
-    }; 
   private:
     std::string tlc;
     //typedef std::string 
@@ -137,6 +174,7 @@ class MyPairConv{
 
 
  public:
+  int wantedPairings,unWantedPairings;
   std::vector<CrmEvents> crmEvents;
 
   // members for reading csv input
@@ -163,13 +201,20 @@ class MyPairConv{
 			     const char separator = ',');
   void parseCsvLine(std::string& line,
 		    const char separator = ',');
-  void parseOrigCsvFile(std::istream& infile);
+  //This was not finished
+  //void parseOrigCsvFile(std::istream& infile);
   void loadCrewCodeLegKey(std::istream& infile);
 
   void loadPairings(std::istream& in);
   void loadCrmEvents(std::istream& in);
 
   void  checkConsecutiveEvents();
+
+  static std::string  concatEventIds(std::vector<Event>::iterator evtIt,
+				     const std::vector<Event>::iterator& evtEndIt,
+				     int length);
+  bool whoTakesThisPairing(  Pairing& pairing);
+  void  findPairingsOnRosters();
 
   int numOfCrms(){
     return crmEvents.size();

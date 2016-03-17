@@ -5,31 +5,55 @@
 
 using namespace std;
 
-void MyPairConv::loadPairings(istream& in){
+void MyPairConv::loadPairings(istream& infile){
   duplicate = 0;
   pairingMap.clear();
-  const int maxSize = 512;
+  //const int maxSize = 512;
   
-  char pId[maxSize], pAId[maxSize],crcString[maxSize];
-
-  string expectedHeader = "#pairing_newid,pairing_aid,crc_positions";
-  string firstLine;
+  string expectedHeader = "#pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
+  string line;
   //check header
-  if (!std::getline(in,firstLine)
-      || firstLine != expectedHeader)
+  if (!std::getline(infile,line)
+      || line != expectedHeader)
     {
       
       cerr << "Pairing file header is not as expected." << endl;
       cerr << "Header: " << endl;
-      cerr << firstLine << endl;
+      cerr << line << endl;
       cerr << "Expected header: " << endl;
       cerr << expectedHeader << endl;
 	exit(1);
     }
   
+  
+  parseCsvHeader(line);
 
+  while (std::getline(infile, line))
+    {
+      parseCsvLine(line);
+      string pId = csvValues["pairing_newid"];
+      string pAId = csvValues["pairing_aid"];
+      string crcString = csvValues["crc"];
+      Pairing a(pId,pAId,crcString);
+      if (a.onlyDeadHeads()){
+	cerr << "Only deadheads: "<< a.getId() << endl;
+	exit(1);
+      }
+      if(pairingMap.count(pId)){
+	cerr << "Error: Key non-unique " << pId <<endl;
+	duplicate++;
+	//exit (EXIT_FAILURE);
+	
+	//We reduce the number of pairings by deleting duplicates 
+	pairingMap[pId][0].increaseCrc(a.getCrc());
+      }
+      else
+	{
+	  pairingMap[pId].push_back(a);
+	}
+    }
 
-  while (in.getline(pId,maxSize,',') 
+  /*  while (in.getline(pId,maxSize,',') 
 	 && in.getline(pAId,maxSize,',')
 	 && in.getline(crcString,maxSize)){
     Pairing a(pId,pAId,crcString);
@@ -43,7 +67,7 @@ void MyPairConv::loadPairings(istream& in){
       exit(1);
     }
     pairingMap[pId].push_back(a);
-  }
+    }*/
 }
 
 bool MyPairConv::nextField(stringstream& is,
@@ -73,6 +97,9 @@ void MyPairConv::parseCsvLine(std::string& line,
     {
       cerr << "Failure parsing csv line (num of separators): "
 	+ line << endl;
+      cerr << "headerVector.size(): " << headerVector.size() << endl;
+      cerr << "Number of separators in line: " 
+	   << std::count(line.begin(), line.end(), separator)<< endl;
       exit(1);
     }
   stringstream is;
@@ -82,6 +109,7 @@ void MyPairConv::parseCsvLine(std::string& line,
   while (nextField(is, value))
     {
       csvValues[headerVector[i]] = value;
+      //cout << "csvValues[" << headerVector[i] << "] = " << value << endl;
       ++i;
     }
  
@@ -117,6 +145,7 @@ void MyPairConv::parseCsvHeader(std::string& headerLine,
     
 }
 
+/* This is not finished
 void MyPairConv::parseOrigCsvFile(istream& infile)
 {
   crmEvents.clear();
@@ -147,7 +176,7 @@ void MyPairConv::parseOrigCsvFile(istream& infile)
       string tlc = csvValues["ORG_EMP_NUM"];
     }
 }
-
+*/
 void MyPairConv::loadCrewCodeLegKey(istream& infile)
 {
   crmEvents.clear();
@@ -173,9 +202,9 @@ void MyPairConv::loadCrewCodeLegKey(istream& infile)
   while (std::getline(infile, line))
     {
       parseCsvLine(line);
-
+      
       //todo something
-      CrmEvents::Event evt;
+      Event evt;
       string curTlc = csvValues["emp_num"];
       evt.setId(csvValues["event_newid"]);
       evt.setRank(atoi(csvValues["rank"].c_str()));
@@ -225,7 +254,7 @@ void MyPairConv::loadCrmEvents(istream& legs)
       is >> rank;
 
       string curTlc = tlc;
-      CrmEvents::Event evt(leg,rank);
+      Event evt(leg,rank);
   
       if (lTlc != curTlc)
 	{
@@ -251,6 +280,101 @@ void MyPairConv::loadCrmEvents(istream& legs)
 
 }
 
+std::string  MyPairConv::concatEventIds(std::vector<Event>::iterator evtIt,
+					const std::vector<Event>::iterator& evtEndIt,
+					int length)
+{
+  string result = evtIt->getStartDt();
+  int i = 0;
+  while (evtIt != evtEndIt && i < length)
+    {
+      result += evtIt->getId();
+      ++evtIt;
+      ++i;
+    }
+  return result;
+}
+
+void MyPairConv::Pairing::addEvents(std::vector<MyPairConv::Event>::iterator evtIt)
+{
+  events.clear();
+  for (int i = 0; i < length(); ++i)
+    {
+      // we could check that evtIt has not reached the end
+      if (evtIt->getType() != 'A')
+	{
+	  events.push_back(*evtIt);
+	}
+      ++evtIt;
+    }
+}
+
+bool MyPairConv::whoTakesThisPairing( MyPairConv::Pairing& pairing)
+{
+  if (crmEvents.size() == 0)
+    {
+      cerr << "You probably forgot to load the events" << endl;
+      exit(1);
+    }
+   for (vector<CrmEvents>::iterator it = crmEvents.begin();
+	it != crmEvents.end();
+	++it)
+    {
+      for (std::vector<Event>::iterator evtIt = it->events.begin();
+	   evtIt != it->events.end(); ++evtIt)
+	{
+	  if (isPrefix(evtIt->getIdWithDt(), pairing.getId()))
+	    {
+	      if (pairing.getId() == 
+		  concatEventIds(evtIt,it->events.end(),pairing.length()))
+		{
+		  pairing.addEvents(evtIt);
+		  return true;
+		}
+	    }
+	}
+    }
+   return false;
+}
+//0630 22:50   55   50
+void  MyPairConv::findPairingsOnRosters()
+{
+  
+
+  if (pairingMap.size() == 0)
+    {
+      cerr << "You probably forgot to load the pairings" << endl;
+      exit(1);
+    }
+
+  wantedPairings = 0;
+  unWantedPairings = 0;
+
+  int counter = 0;
+  cout << "Number of different pairing keys: " << pairingMap.size() << endl;
+  
+  for (SSMap::iterator pIt = pairingMap.begin();
+       pIt != pairingMap.end(); ++ pIt)
+    {
+      Pairing& pairing = pIt->second[0];
+      if (whoTakesThisPairing(pairing))
+	{
+	  wantedPairings++;
+	}
+      else
+	{
+	  cerr << "Nobody wanted this pairing (aId: " << pairing.getAId() << "): " << endl;
+	  cerr << pairing.getId() << endl;
+	  unWantedPairings++;
+	}
+      ++counter;
+      if (counter % 500 == 0)
+	{
+	  cout << "Pairing counter: " << counter << endl;
+	}
+    }
+  
+}
 void  MyPairConv::checkConsecutiveEvents()
 {
   
@@ -260,32 +384,46 @@ void  MyPairConv::checkConsecutiveEvents()
       exit(1);
     }
 
-  map<string, string> keyPairs;
+  map<string,  ConsecutiveEvtPairs> keyPairs;
+  ConsecutiveEvtPairs consEvts;
 
+  cout  << "Total number of crms: " << crmEvents.size() << endl;
+  int cnt = 0;
   for (vector<CrmEvents>::iterator it = crmEvents.begin();
        it != crmEvents.end();
        ++it)
     {
-      for (std::vector<CrmEvents::Event>::iterator evtIt = it->events.begin();
+      ++cnt;
+      consEvts.tlc = it->getTlc();
+
+      if (cnt % 500 == 0)
+	{
+	  cout  << "Crew member counter: " << cnt << endl;
+	}
+      for (std::vector<Event>::iterator evtIt = it->events.begin();
 	   evtIt != it->events.end() - 1; ++evtIt)
 	{
-	  std::string key = evtIt->getId() + evtIt->getStartDt() 
-	    + (evtIt+1)->getId();
-	  string value = key + (evtIt+1)->getStartDt();
-	  if (!keyPairs.count(key))
+	  if (evtIt->getType() != 'A' || (evtIt+1)->getType() != 'A')
 	    {
-	      keyPairs[key] = value;
-	    }
-	  else
-	    {
-	      if (keyPairs[key] != value)
+	      std::string key = evtIt->getId() + evtIt->getStartDt() 
+		+ (evtIt+1)->getId();
+	      consEvts.consEventIdsWithDt = key + (evtIt+1)->getStartDt();
+	      
+	      if (!keyPairs.count(key))
 		{
-		  cerr  << "Error with consecutive events!" << endl;
-		  cerr << "One event:" << endl;
-		  cerr << keyPairs[key] << endl;
-		  cerr << "Other event: " << endl;
-		  cerr << value << endl;
-		  exit(1);
+		  keyPairs[key] = consEvts;
+		}
+	      else
+		{
+		  if (keyPairs[key].consEventIdsWithDt !=  consEvts.consEventIdsWithDt)
+		    {
+
+		      cerr << "Crm " << keyPairs[key].tlc << " has events ";
+		      cerr << keyPairs[key].consEventIdsWithDt;
+		      cerr << ", while crm " << consEvts.tlc << " has events " ;
+		      cerr << consEvts.consEventIdsWithDt << endl;
+		      //exit(1);
+		    }
 		}
 	    }
 	}

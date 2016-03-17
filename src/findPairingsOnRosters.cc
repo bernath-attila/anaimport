@@ -8,7 +8,7 @@ using namespace std;
 int main(){
   {
     ifstream crmEventsStream;
-    crmEventsStream.open("/media/sf_ANADataForCpp/CrewCode_Reference.csv");
+    crmEventsStream.open("/media/sf_ANADataForCpp/CrewCode_LegKey.csv");
     MyPairConv a;
     
     a.loadCrewCodeLegKey(crmEventsStream);	     
