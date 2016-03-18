@@ -63,8 +63,6 @@ class MyPairConv{
 	{
 	  type = 'A';
 	}
-      //      if (isdigit(eventId[1]) && isdigit(eventId[2]) 
-      //	  && isdigit(eventId[3]) && isdigit(eventId[4]))
     }
     const std::string& getId() const {return eventId;}
 
@@ -102,6 +100,7 @@ class MyPairConv{
   class Pairing{
     std::string id;
     std::string aId;
+    std::string oldId;
     std::vector<int> crc;
 
   public:
@@ -156,15 +155,7 @@ class MyPairConv{
 	    std::cerr << "The events haven't yet been identified!" << std::endl;
 	    exit(1);
 	  }
-	std::string result = "";
-	
-	for (std::vector<MyPairConv::Event>::const_iterator evtIt = events.begin();
-	     evtIt != events.end(); ++evtIt)
-	  {
-	    result += evtIt->getStartDt() + evtIt->getId();
-	  }
-	
-	return result;
+	return oldId;
       }
     int getCrc(int index) const { return crc[index];}
     const std::vector<int>& getCrc() const {return crc;}

@@ -310,11 +310,14 @@ std::string  MyPairConv::concatEventIds(std::vector<Event>::iterator evtIt,
   return result;
 }
 
+//We add the events and calculate the old id
 void MyPairConv::Pairing::addEvents(std::vector<MyPairConv::Event>::iterator evtIt)
 {
   events.clear();
+  oldId = "";
   for (int i = 0; i < length(); ++i)
     {
+      oldId += evtIt->getOldId();
       // we could check that evtIt has not reached the end
       if (evtIt->getType() != 'A')
 	{
@@ -820,6 +823,7 @@ void MyPairConv::pairingsInPreassignment()
 	  findPairings(*evtIt, possiblePairings);
 	  map<string, Pairing> filteredPairings;
 	  
+	  //cout << "Possible pairing : " << possiblePairings[0].getOldId() << endl;
 	  filterPairings(evtIt, crmIt->events.end(), 
 			 possiblePairings, filteredPairings);
 	  

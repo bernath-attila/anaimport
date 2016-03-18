@@ -138,14 +138,6 @@ TEST (testPairing, testPairing1)
     MyPairConv::Pairing a1("0712 15:00D  71  578  416","aId1","0|2|0|0|0|0|0|0|0|0|0|4");
     ASSERT_EQ(3,a1.length());
     ASSERT_FALSE(a1.onlyDeadHeads());
-    MyPairConv::Event evt("D  71",1);
-    evt.setStartDt("0712 15:00");
-    a1.events.push_back(evt);
-    ASSERT_EQ("0712 15:00D  71", a1.getOldId());
-    evt.setId("  578");
-    evt.setStartDt("0712 19:00");
-    a1.events.push_back(evt);
-    ASSERT_EQ("0712 15:00D  710712 19:00  578", a1.getOldId());
     
   }
   {
@@ -170,6 +162,8 @@ TEST (testPairing, testPairing1)
     a1.addEvents(events.begin());
 
     ASSERT_EQ(3, a1.events.size());
+    ASSERT_EQ("0712 15:00D  710712 19:00  5780712 20:00 IVL10712 22:00  416", 
+	      a1.getOldId());
   }
 }
 
