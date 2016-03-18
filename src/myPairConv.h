@@ -77,9 +77,9 @@ class MyPairConv{
     }
     int getRank() const 
     {
-      if (type == 'F')
+      if (type != 'L')
 	{
-	  std::cerr << "Never ask for the rank of a deadhead event." << 
+	  std::cerr << "Rank should only be asked for flight duty events." << 
 	    std::endl;
 	  //exception to be thrown and checked
 	  exit(1);

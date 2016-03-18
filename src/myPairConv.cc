@@ -218,6 +218,12 @@ void MyPairConv::loadCrewCodeLegKey(istream& infile)
       //we cheat
       evt.tlc = curTlc;
 
+      if (csvValues["RANK"] == "" && csvValues["rank"] != "-1")
+	{
+	  cerr << "Error in input, line: " << endl;
+	  cerr << line << endl;
+	  exit(1);
+	}
       if (lTlc != curTlc)
 	{
 	  //cout << "New crm: "<< curTlc << endl;
@@ -596,7 +602,7 @@ bool MyPairConv::checkPairing(const Pairing& pairing,
   int rank = -1;
   for (int i = 0; i < length && evtItCpy != endIt ; ++i){
     key += evtItCpy->getOldId();
-    if (evtItCpy->getType() != 'F' && evtItCpy->getType() != 'A')
+    if (evtItCpy->getType() == 'L')
       {// we check the rank
 	if (rank != -1
 	    && rank != evtItCpy->getRank())
@@ -655,7 +661,7 @@ int  MyPairConv::getRankAndMove(std::vector<Event>::iterator& evtIt,
 
     for (int i = 0; i < length; ++i)
     {
-      if (evtIt->getType() != 'F')
+      if (evtIt->getType() == 'L')
 	{
 	  assignedRank = evtIt->getRank();
 	}
@@ -847,8 +853,8 @@ void MyPairConv::pairingsInPreassignment()
 		  else
 		    {
 		      noPairingFound ++;
-		      cerr << "No pairing found for crm " << crmIt->getTlc() << ", event "
-			   << evtIt->getOldId() << endl;
+		      //cerr << "No pairing found for crm " << crmIt->getTlc() << ", event "
+		      //   << evtIt->getOldId() << endl;
 		      unAssignedEvents++;
 		    }
 		}	      
