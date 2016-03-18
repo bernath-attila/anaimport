@@ -35,39 +35,39 @@ class MyClass{
       return std::count(id.begin(), id.end(),'L') 
 	+ std::count(id.begin(), id.end(),'F');
     }
-    std::string getId() const { return id;}
+    std::string getOldId() const { return id;}
     std::string getAId() const { return aId;}
     bool onlyDeadHeads() const 
     { return (std::count(id.begin(), id.end(),'L') == 0);}
   };  
 
-  class CrmEvents{
+  class Event{
+    std::string eventId;
+    char type;
+    int rank;
   public:
-    class Event{
-      std::string eventId;
-      char type;
-      int rank;
-    public:
-      Event(const std::string& _eventId,
-	    int _rank){
-	eventId = _eventId;
-	type = eventId[eventId.length()-1];
-	rank = _rank;
-      }
-      const std::string& getId() const {return eventId;}
-      char getType() const{ return type;} 
-      int getRank() const 
-      {
-	if (type == 'F')
-	  {
-	    std::cerr << "Never ask for the rank of a deadhead event." << 
-	      std::endl;
-	    //exception to be thrown and checked
-	    exit(1);
-	  }
-	return rank;
-      }
-    }; 
+    Event(const std::string& _eventId,
+	  int _rank){
+      eventId = _eventId;
+      type = eventId[eventId.length()-1];
+      rank = _rank;
+    }
+    const std::string& getOldId() const {return eventId;}
+    char getType() const{ return type;} 
+    int getRank() const 
+    {
+      if (type == 'F')
+	{
+	  std::cerr << "Never ask for the rank of a deadhead event." << 
+	    std::endl;
+	  //exception to be thrown and checked
+	  exit(1);
+	}
+      return rank;
+    }
+  }; 
+
+  class CrmEvents{
   private:
     std::string tlc;
     //typedef std::string 
@@ -135,20 +135,20 @@ class MyClass{
 
   int selfPrefix();
 
-  void findPairings(const CrmEvents::Event& evt,
+  void findPairings(const Event& evt,
 		    std::vector<Pairing>& foundPairings);
   
   static bool checkPairing(const MyClass::Pairing& pairing,
-			   std::vector<CrmEvents::Event>::iterator evtItCpy,
+			   std::vector<Event>::iterator evtItCpy,
 			   //to check if end was reached
-			   const std::vector<CrmEvents::Event>::iterator& endIt);
+			   const std::vector<Event>::iterator& endIt);
 
-  static void filterPairings(const std::vector<CrmEvents::Event>::iterator& evtIt,
-		      const std::vector<CrmEvents::Event>::iterator& endIt,
+  static void filterPairings(const std::vector<Event>::iterator& evtIt,
+		      const std::vector<Event>::iterator& endIt,
 		      const std::vector<Pairing>& possiblePairings,
 		      std::map<std::string, Pairing>& filteredPairings);
 
-  static int getRankAndMove(std::vector<CrmEvents::Event>::iterator& evtIt, 
+  static int getRankAndMove(std::vector<Event>::iterator& evtIt, 
 			    int length);
 
   static std::string printRprgLine(const std::string& tlc,

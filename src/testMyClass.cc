@@ -16,7 +16,7 @@ TEST (testPairing, testPairing1)
   {
     MyClass::Pairing a1("id1","aId1","0|2|0|0|0|0|0|0|0|0|0|4");
     MyClass::Pairing a2("id2","aId2","0|0|0|0|0|0|0|0|0|0|0|0");
-    ASSERT_EQ("id1",a1.getId());
+    ASSERT_EQ("id1",a1.getOldId());
     ASSERT_EQ("aId1",a1.getAId());
     ASSERT_EQ(0,a1.getCrc(0));
     ASSERT_EQ(2,a1.getCrc(1));
@@ -46,7 +46,7 @@ TEST (testPairing, testPairing1)
 
 TEST (testEvent, testEvent1)
 {
-  MyClass::CrmEvents::Event a("event1",1);
+  MyClass::Event a("event1",1);
   ASSERT_EQ('1', a.getType());
   //exception to be thrown and checked
 }
@@ -57,8 +57,8 @@ TEST (testCrmEvents, testCrmEvents1)
   
   a.setTlc("tlc1");
   ASSERT_EQ("tlc1",a.getTlc());
-  a.addEvent(MyClass::CrmEvents::Event("event1",1));
-  a.addEvent(MyClass::CrmEvents::Event("event2",3));
+  a.addEvent(MyClass::Event("event1",1));
+  a.addEvent(MyClass::Event("event2",3));
   ASSERT_EQ(2,a.numOfEvents());
   a.setTlc("tlc2");
   ASSERT_EQ(0,a.numOfEvents());
@@ -194,32 +194,32 @@ TEST (testFindPairings, testFindPairings1)
 
   vector<MyClass::Pairing> possiblePairings;
   {//find one pairing
-    MyClass::CrmEvents::Event evt("leg1L",0);
+    MyClass::Event evt("leg1L",0);
     a.findPairings(evt,possiblePairings);
     ASSERT_EQ(1,possiblePairings.size());
   }
   {//no pairing for this event
-    MyClass::CrmEvents::Event evt("legwL",0);
+    MyClass::Event evt("legwL",0);
     a.findPairings(evt,possiblePairings);
     ASSERT_EQ(0,possiblePairings.size());
   }
   {//find one pairing,: rank is not checked
-    MyClass::CrmEvents::Event evt("leg1L",1);
+    MyClass::Event evt("leg1L",1);
     a.findPairings(evt,possiblePairings);
     ASSERT_EQ(1,possiblePairings.size());
   }
   {//find 3 pairing, rank is not checked
-    MyClass::CrmEvents::Event evt("leg3L",0);
+    MyClass::Event evt("leg3L",0);
     a.findPairings(evt,possiblePairings);
     ASSERT_EQ(3,possiblePairings.size());
   }
   {//no pairing for this event (end of pairings)
-    MyClass::CrmEvents::Event evt("zzzL",0);
+    MyClass::Event evt("zzzL",0);
     a.findPairings(evt,possiblePairings);
     ASSERT_EQ(0,possiblePairings.size());
   }
   {//find the pairing for a deadhead: rank is not checked
-    MyClass::CrmEvents::Event evt("leg5F",0);
+    MyClass::Event evt("leg5F",0);
     a.findPairings(evt,possiblePairings);
     ASSERT_EQ(1,possiblePairings.size());
   }
@@ -229,12 +229,12 @@ TEST (testCheckPairing, testCheckPairing1)
 {
 
   {
-    std::vector<MyClass::CrmEvents::Event> events;
+    std::vector<MyClass::Event> events;
     {
-      MyClass::CrmEvents::Event evt("legL",0);
+      MyClass::Event evt("legL",0);
       events.push_back(evt);
     }
-    std::vector<MyClass::CrmEvents::Event>::iterator evtIt = events.begin();
+    std::vector<MyClass::Event>::iterator evtIt = events.begin();
     MyClass::Pairing pairing("legL","1","1|1|1|0|0|0|0|0|0|0|0|0");
   
     ASSERT_TRUE(MyClass::checkPairing(pairing, evtIt,events.end()));
@@ -242,51 +242,51 @@ TEST (testCheckPairing, testCheckPairing1)
   }
   
   {// find a pairing of length 2
-    std::vector<MyClass::CrmEvents::Event> events;
+    std::vector<MyClass::Event> events;
     {
-      MyClass::CrmEvents::Event evt("leg1L",0);
+      MyClass::Event evt("leg1L",0);
       events.push_back(evt);
     }
     {
-      MyClass::CrmEvents::Event evt("leg2F",0);
+      MyClass::Event evt("leg2F",0);
       events.push_back(evt);
     }
     {
-      MyClass::CrmEvents::Event evt("leg3F",0);
+      MyClass::Event evt("leg3F",0);
       events.push_back(evt);
     }
 
-    std::vector<MyClass::CrmEvents::Event>::iterator evtIt = events.begin();
+    std::vector<MyClass::Event>::iterator evtIt = events.begin();
     MyClass::Pairing pairing("leg1Lleg2F","1","1|1|1|0|0|0|0|0|0|0|0|0");
   
     ASSERT_TRUE(MyClass::checkPairing(pairing, evtIt,events.end()));
  
   }
   {// events do not follow pairing
-    std::vector<MyClass::CrmEvents::Event> events;
+    std::vector<MyClass::Event> events;
     {
-      MyClass::CrmEvents::Event evt("leg1L",0);
+      MyClass::Event evt("leg1L",0);
       events.push_back(evt);
     }
     {
-      MyClass::CrmEvents::Event evt("leg2L",0);
+      MyClass::Event evt("leg2L",0);
       events.push_back(evt);
     }
 
-    std::vector<MyClass::CrmEvents::Event>::iterator evtIt = events.begin();
+    std::vector<MyClass::Event>::iterator evtIt = events.begin();
     MyClass::Pairing pairing("leg1Lleg3L","1","1|1|1|0|0|0|0|0|0|0|0|0");
   
     ASSERT_FALSE(MyClass::checkPairing(pairing, evtIt,events.end()));
  
   }
   {// events shorter than pairing
-    std::vector<MyClass::CrmEvents::Event> events;
+    std::vector<MyClass::Event> events;
     {
-      MyClass::CrmEvents::Event evt("leg1L",0);
+      MyClass::Event evt("leg1L",0);
       events.push_back(evt);
     }
 
-    std::vector<MyClass::CrmEvents::Event>::iterator evtIt = events.begin();
+    std::vector<MyClass::Event>::iterator evtIt = events.begin();
     MyClass::Pairing pairing("leg1Lleg2F","1","1|1|1|0|0|0|0|0|0|0|0|0");
   
     ASSERT_FALSE(MyClass::checkPairing(pairing, evtIt,events.end()));
@@ -294,12 +294,12 @@ TEST (testCheckPairing, testCheckPairing1)
   }
 
   {// pairing has no position
-    std::vector<MyClass::CrmEvents::Event> events;
+    std::vector<MyClass::Event> events;
     {
-      MyClass::CrmEvents::Event evt("legL",5);
+      MyClass::Event evt("legL",5);
       events.push_back(evt);
     }
-    std::vector<MyClass::CrmEvents::Event>::iterator evtIt = events.begin();
+    std::vector<MyClass::Event>::iterator evtIt = events.begin();
     MyClass::Pairing pairing("legL","1","1|1|1|0|0|0|0|0|0|0|0|0");
   
     // rank is not checked
@@ -313,12 +313,12 @@ TEST (testFilterPairings, testFilterPairings1)
 {
 
   { // possible pairings empty
-    std::vector<MyClass::CrmEvents::Event> events;
+    std::vector<MyClass::Event> events;
     {
-      MyClass::CrmEvents::Event evt("legL",0);
+      MyClass::Event evt("legL",0);
       events.push_back(evt);
     }
-    std::vector<MyClass::CrmEvents::Event>::iterator evtIt = events.begin();
+    std::vector<MyClass::Event>::iterator evtIt = events.begin();
     vector<MyClass::Pairing> possiblePairings;
     
     map<string, MyClass::Pairing> filteredPairings;
@@ -327,12 +327,12 @@ TEST (testFilterPairings, testFilterPairings1)
     ASSERT_EQ(0, filteredPairings.size());
   }
   { // find one
-    std::vector<MyClass::CrmEvents::Event> events;
+    std::vector<MyClass::Event> events;
     {
-      MyClass::CrmEvents::Event evt("legL",0);
+      MyClass::Event evt("legL",0);
       events.push_back(evt);
     }
-    std::vector<MyClass::CrmEvents::Event>::iterator evtIt = events.begin();
+    std::vector<MyClass::Event>::iterator evtIt = events.begin();
     vector<MyClass::Pairing> possiblePairings;
     {
       MyClass::Pairing pairing("legL","1","1|1|1|0|0|0|0|0|0|0|0|0");
@@ -354,16 +354,16 @@ TEST (testFilterPairings, testFilterPairings1)
   }
   /* disabled: rank is not checked
   { //filter out all
-    std::vector<MyClass::CrmEvents::Event> events;
+    std::vector<MyClass::Event> events;
     {
-      MyClass::CrmEvents::Event evt("legL",0);
+      MyClass::Event evt("legL",0);
       events.push_back(evt);
     }
     {
-      MyClass::CrmEvents::Event evt("ledL",0);
+      MyClass::Event evt("ledL",0);
       events.push_back(evt);
     }
-    std::vector<MyClass::CrmEvents::Event>::iterator evtIt = events.begin();
+    std::vector<MyClass::Event>::iterator evtIt = events.begin();
     vector<MyClass::Pairing> possiblePairings;
     {//no position
       MyClass::Pairing pairing("legL","1","0|1|1|0|0|0|0|0|0|0|0|0");
@@ -381,20 +381,20 @@ TEST (testFilterPairings, testFilterPairings1)
     }*/
 
   { 
-    std::vector<MyClass::CrmEvents::Event> events;
+    std::vector<MyClass::Event> events;
     {
-      MyClass::CrmEvents::Event evt("leg1F",0);
+      MyClass::Event evt("leg1F",0);
       events.push_back(evt);
     }
     {
-      MyClass::CrmEvents::Event evt("leg2L",0);
+      MyClass::Event evt("leg2L",0);
       events.push_back(evt);
     }
     {
-      MyClass::CrmEvents::Event evt("leg3L",0);
+      MyClass::Event evt("leg3L",0);
       events.push_back(evt);
     }
-    std::vector<MyClass::CrmEvents::Event>::iterator evtIt = events.begin();
+    std::vector<MyClass::Event>::iterator evtIt = events.begin();
     
     vector<MyClass::Pairing> possiblePairings;
     {
@@ -419,20 +419,20 @@ TEST (testFilterPairings, testFilterPairings1)
     ASSERT_EQ(--events.end(), evtIt); 
   }
   { 
-    std::vector<MyClass::CrmEvents::Event> events;
+    std::vector<MyClass::Event> events;
     {
-      MyClass::CrmEvents::Event evt("leg1F",0);
+      MyClass::Event evt("leg1F",0);
       events.push_back(evt);
     }
     {
-      MyClass::CrmEvents::Event evt("leg2L",0);
+      MyClass::Event evt("leg2L",0);
       events.push_back(evt);
     }
     {
-      MyClass::CrmEvents::Event evt("leg3L",0);
+      MyClass::Event evt("leg3L",0);
       events.push_back(evt);
     }
-    std::vector<MyClass::CrmEvents::Event>::iterator evtIt = events.begin();
+    std::vector<MyClass::Event>::iterator evtIt = events.begin();
     
     vector<MyClass::Pairing> possiblePairings;
     {

@@ -138,8 +138,41 @@ TEST (testPairing, testPairing1)
     MyPairConv::Pairing a1("0712 15:00D  71  578  416","aId1","0|2|0|0|0|0|0|0|0|0|0|4");
     ASSERT_EQ(3,a1.length());
     ASSERT_FALSE(a1.onlyDeadHeads());
+    MyPairConv::Event evt("D  71",1);
+    evt.setStartDt("0712 15:00");
+    a1.events.push_back(evt);
+    ASSERT_EQ("0712 15:00D  71", a1.getOldId());
+    evt.setId("  578");
+    evt.setStartDt("0712 19:00");
+    a1.events.push_back(evt);
+    ASSERT_EQ("0712 15:00D  710712 19:00  578", a1.getOldId());
+    
+  }
+  {
+    MyPairConv::Pairing a1("0712 15:00D  71  578 IVL1  416","aId1","0|2|0|0|0|0|0|0|0|0|0|4");
+    vector<MyPairConv::Event> events;
+    MyPairConv::Event evt("D  71",1);
+    evt.setStartDt("0712 15:00");
+    events.push_back(evt);
+
+    evt.setId("  578");
+    evt.setStartDt("0712 19:00");
+    events.push_back(evt);
+
+    evt.setId(" IVL1");
+    evt.setStartDt("0712 20:00");
+    events.push_back(evt);
+
+    evt.setId("  416");
+    evt.setStartDt("0712 22:00");
+    events.push_back(evt);
+
+    a1.addEvents(events.begin());
+
+    ASSERT_EQ(3, a1.events.size());
   }
 }
+
 
 TEST (testEvent, testEvent1)
 {
@@ -159,10 +192,101 @@ TEST (testEvent, testEvent1)
     MyPairConv::Event a(" evt1",1);
     a.setStartDt("0702 6:30");
     ASSERT_EQ("0702 6:30 evt1", a.getIdWithDt());
+    ASSERT_EQ("0702 6:30 evt1", a.getOldId());
   }
 
 }
+TEST (testRprgString, testRprgString1)
+{
 
+  ASSERT_EQ("RPRG|011|N|012|1|N|N", MyPairConv::rprgString("011","012",1));
+}
+
+TEST (testRftrString, testRftrString1)
+{
+    stringstream legs;
+
+    legs << "#emp_num,jod_dt,job_num,event_newid,event_start_dt,event_end_dt,leg_day_of_orig,rank,ORG_EMP_NUM,ORG_AIRLINE_CD,JOB_DT,JOB_NO,CARRIER,JOB_CD,DEP_PLACE,ARR_PLACE,DUTY_CD,DEP_TIME,ARR_TIME,FLT_BASE_DT,FLT_AIRLINE_CD,FLT_NUM_OR_JOB_CD,SCH_DEP_AIRP_CD,SCH_ARR_AIRP_CD,OPE_ODR,RANK\n";
+    legs << "011135,20150728,10,  211,0728 02:40,0728 15:10,20150728,5,011135,NH,20150728,10,NH,0211,HND,LHR,   ,2015-07-28 11:40:00.00,2015-07-29 00:10:00.00,20150728,NH,0211,HND,LHR,1,CF\n";
+
+    MyPairConv a;
+    a.loadCrewCodeLegKey(legs);
+
+  //RFTR|046109|N|20150708|NH   53 |HND|0
+  ASSERT_EQ("RFTR|ALVAREZ|N|20150728|NH  211 |HND|0", 
+	    MyPairConv::rftrString("ALVAREZ", a.crmEvents[0].events[0]));
+}
+
+TEST (rabsString, rabsString1)
+{
+  {
+
+    stringstream legs;
+
+    legs << "#emp_num,jod_dt,job_num,event_newid,event_start_dt,event_end_dt,leg_day_of_orig,rank,ORG_EMP_NUM,ORG_AIRLINE_CD,JOB_DT,JOB_NO,CARRIER,JOB_CD,DEP_PLACE,ARR_PLACE,DUTY_CD,DEP_TIME,ARR_TIME,FLT_BASE_DT,FLT_AIRLINE_CD,FLT_NUM_OR_JOB_CD,SCH_DEP_AIRP_CD,SCH_ARR_AIRP_CD,OPE_ODR,RANK\n";
+    legs << "008301,20150702,10, OFFA,0701 15:00,0702 15:00,        ,-1,008301,NH,20150702,10,   ,OFFA,TYO,TYO,   ,,,        ,   ,,,, ,\n";
+
+    MyPairConv a;
+    a.loadCrewCodeLegKey(legs);
+
+    //MyPairConv::Event event(" OFF1",1);
+    ASSERT_EQ("RABS|ALVAREZ|N|20150701|20150702|OFFA|TYO|1500|1500|0|0", 
+	      MyPairConv::rabsString("ALVAREZ", a.crmEvents[0].events[0]));
+  }
+}
+
+TEST (testPprgString, testPprgString1)
+{
+  {
+    MyPairConv::Pairing a1("0712 15:00D  71  578 IVL1  416","aId1","0|2|0|0|0|0|0|0|0|0|0|4");
+    // vector<MyPairConv::Event> events;
+    // MyPairConv::Event evt("D  71",1);
+    // evt.setStartDt("0712 15:00");
+    // events.push_back(evt);
+
+    // evt.setId("  578");
+    // evt.setStartDt("0712 19:00");
+    // events.push_back(evt);
+
+    // evt.setId(" IVL1");
+    // evt.setStartDt("0712 20:00");
+    // events.push_back(evt);
+
+    // evt.setId("  416");
+    // evt.setStartDt("0712 22:00");
+    // events.push_back(evt);
+
+    // a1.addEvents(events.begin());
+
+    //PPRG|0|0|0|0|0|0|0|0|1|0|0|1|M|105|import|Y||19700101||105|
+
+    ASSERT_EQ("PPRG|0|2|0|0|0|0|0|0|0|0|0|4|M|aId1|import|Y||19700101||aId1||" , 
+	      MyPairConv::pprgString(a1));
+  }
+}
+TEST (testPlegString, testPlegString1)
+{
+  {
+    // vector<MyPairConv::Event> events;
+    // MyPairConv::Event evt("D  71",1);
+    // evt.setStartDt("0712 15:00");
+    // events.push_back(evt);
+
+    // evt.setId("  578");
+    // evt.setStartDt("0712 19:00");
+    // events.push_back(evt);
+
+    // evt.setId(" IVL1");
+    // evt.setStartDt("0712 20:00");
+    // events.push_back(evt);
+
+    // evt.setId("  416");
+    // evt.setStartDt("0712 22:00");
+    // events.push_back(evt);
+
+    // a1.addEvents(events.begin());
+  }
+}
 TEST (testConcatEventIds, testConcatEventIds1)
 {
   vector<MyPairConv::Event> events;
@@ -320,6 +444,14 @@ TEST (testLoadCrewCodeLegKey, testLoadCrewCodeLegKey1)
     ASSERT_EQ(2, a.crmEvents[0].numOfEvents());
     ASSERT_EQ(" OFFA", a.crmEvents[0].events[0].getId());
     ASSERT_EQ(3, a.crmEvents[1].numOfEvents());
+    ASSERT_EQ("0728 02:40", a.crmEvents[1].events[1].getStartDt());
+    ASSERT_EQ("0728 15:10", a.crmEvents[1].events[1].getEndDt());
+    ASSERT_EQ("HND", a.crmEvents[1].events[1].depPlace);
+    ASSERT_EQ("LHR", a.crmEvents[1].events[1].arrPlace);
+    ASSERT_EQ("OFFA", a.crmEvents[0].events[0].eventCode);
+    ASSERT_EQ("20150728", a.crmEvents[1].events[1].leg_day_of_orig);
+    ASSERT_EQ("008301", a.crmEvents[0].events[0].tlc);
+
   }
 }
 
@@ -343,12 +475,6 @@ TEST (testLoadEvents, testLoadEvents)
 }
 
 
-
-TEST (testPrintRprg, testPrintRprg1)
-{
-
-  ASSERT_EQ("RPRG|011|N|012|1|N|N", MyPairConv::printRprgLine("011","012",1));
-}
 
 TEST (testRun, testRun1)
 {

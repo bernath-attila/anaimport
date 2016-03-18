@@ -25,8 +25,18 @@ class MyPairConv{
     char type;
     int rank;
     std::string startDt;
-      
+    std::string endDt;
+    
   public:
+    std::string depPlace;
+    std::string arrPlace;
+    std::string eventCode;
+    std::string leg_day_of_orig;
+
+
+    //this is a little bit of a cheating: why should the event have a tlc
+    std::string tlc;
+
     Event(const std::string& _eventId,
 	  const int _rank){
       setId(_eventId);
@@ -59,6 +69,7 @@ class MyPairConv{
     const std::string& getId() const {return eventId;}
 
     const std::string getIdWithDt() const {return startDt + eventId;}
+    const std::string getOldId() const {return getIdWithDt();}
     char getType() const{ return type;} 
     void setRank(const int _rank)
     {
@@ -80,7 +91,12 @@ class MyPairConv{
     {
       startDt = _startDt;
     }      
+    void setEndDt(const std::string& _endDt)
+    {
+      endDt = _endDt;
+    }      
     const std::string& getStartDt() const {return startDt;}
+    const std::string& getEndDt() const {return endDt;}
   }; 
 
   class Pairing{
@@ -109,6 +125,16 @@ class MyPairConv{
 
     void addEvents(std::vector<MyPairConv::Event>::iterator evtIt);
     void parseCrcString(const std::string& crcString);
+    void increaseCrc(const int rank)
+    {
+      if (rank > 11 || rank < 0)
+	{
+	  std::cerr << "Increase crc for rank " << rank << "not possible." << std::endl;
+	  exit(1);
+	}
+      crc[rank]++;
+      
+    }
     void increaseCrc(const std::vector<int>& otherCrc)
     {
       if (crc.size() != 12
@@ -123,6 +149,23 @@ class MyPairConv{
 	}
     }
 
+    std::string getOldId() const
+      {
+	if (events.size() == 0)
+	  {
+	    std::cerr << "The events haven't yet been identified!" << std::endl;
+	    exit(1);
+	  }
+	std::string result = "";
+	
+	for (std::vector<MyPairConv::Event>::const_iterator evtIt = events.begin();
+	     evtIt != events.end(); ++evtIt)
+	  {
+	    result += evtIt->getStartDt() + evtIt->getId();
+	  }
+	
+	return result;
+      }
     int getCrc(int index) const { return crc[index];}
     const std::vector<int>& getCrc() const {return crc;}
     int length() const
@@ -146,8 +189,10 @@ class MyPairConv{
   private:
     std::string tlc;
     //typedef std::string 
+
   public:
     std::vector<Event> events;
+    std::vector<std::string> rosterLines;
 
     void setTlc(const std::string& _tlc){
       events.clear();
@@ -214,7 +259,40 @@ class MyPairConv{
 				     const std::vector<Event>::iterator& evtEndIt,
 				     int length);
   bool whoTakesThisPairing(  Pairing& pairing);
-  void  findPairingsOnRosters();
+  void  identifyPairingEvents();
+  
+  void findPairings(const MyPairConv::Event& evt,
+		    std::vector<Pairing>& foundPairings);
+
+  bool checkPairing(const Pairing& pairing,
+		    std::vector<Event>::iterator evtItCpy,
+		    //to check if end was reached
+		    const std::vector<Event>::iterator& endIt);
+    
+  void filterPairings(const std::vector<MyPairConv::Event>::iterator& evtIt,
+		      const std::vector<Event>::iterator& endIt,
+		      const std::vector<Pairing>& possiblePairings,
+		      std::map<std::string, Pairing>& filteredPairings);
+    
+  int getRankAndMove(std::vector<Event>::iterator& evtIt, 
+		     int length);
+
+  void pairingsInPreassignment();
+
+  void deleteUnWantedPairings();
+
+  static std::string rabsString(const std::string& tlc,
+				const Event& event);
+  static std::string rftrString(const std::string& tlc,
+				const Event& event);
+
+  static std::string pprgString(const Pairing& pairing);
+  static std::string  plegString(const  MyPairConv::Event& event);
+  static std::string  pftrString(const  MyPairConv::Event& event);
+  static std::string rprgString(const std::string& tlc,
+					    const std::string& aId,
+					    const int rank);
+
 
   int numOfCrms(){
     return crmEvents.size();
@@ -249,9 +327,10 @@ class MyPairConv{
   int selfPrefix();
 
 
-  static std::string printRprgLine(const std::string& tlc,
-					    const std::string& aId,
-					    const int rank);
+
+  void  writeRosterLines(std::ostream& rosterOut);
+  void  writePairings(std::ostream& pairingOut);
+
   void run(std::istream& pairings,
 	   std::istream& legs,
 	   std::ostream& output);

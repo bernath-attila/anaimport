@@ -209,6 +209,15 @@ void MyPairConv::loadCrewCodeLegKey(istream& infile)
       evt.setId(csvValues["event_newid"]);
       evt.setRank(atoi(csvValues["rank"].c_str()));
       evt.setStartDt(csvValues["event_start_dt"]);
+      evt.setEndDt(csvValues["event_end_dt"]);
+      evt.depPlace = csvValues["DEP_PLACE"];
+      evt.arrPlace = csvValues["ARR_PLACE"];
+      evt.eventCode = csvValues["JOB_CD"];
+      evt.leg_day_of_orig = csvValues["leg_day_of_orig"];
+      
+      //we cheat
+      evt.tlc = curTlc;
+
       if (lTlc != curTlc)
 	{
 	  //cout << "New crm: "<< curTlc << endl;
@@ -337,7 +346,7 @@ bool MyPairConv::whoTakesThisPairing( MyPairConv::Pairing& pairing)
    return false;
 }
 //0630 22:50   55   50
-void  MyPairConv::findPairingsOnRosters()
+void  MyPairConv::identifyPairingEvents()
 {
   
 
@@ -537,7 +546,149 @@ int MyPairConv::selfPrefix(){
 
 
 
-std::string MyPairConv::printRprgLine(const std::string& tlc,
+
+
+//We collect every pairing that starts with the given event
+void MyPairConv::findPairings(const MyPairConv::Event& evt,
+			   vector<Pairing>& foundPairings)
+{
+  foundPairings.clear();
+  SSMap::iterator it = pairingMap.lower_bound(evt.getOldId());
+  while (it != pairingMap.end()
+	 && isPrefix(evt.getOldId(),it->first))
+    {
+      //if we don't consider crc then this is it:
+      //foundPairings.insert(foundPairings.end(),
+      //it->second.begin(),
+      //it->second.end());
+      // end if we don!t consider
+
+      for (vector<Pairing>::iterator it2 = it->second.begin();
+	   it2 != it->second.end(); ++it2){
+	// we don't check the rank here
+	foundPairings.push_back(*it2);
+	
+	// if (evt.getType() == 'F'){
+	// we don't know the rank for a deadhead -> we don't check it
+	//   foundPairings.push_back(*it2);
+	// }
+	// else
+	//   {
+	//     if (it2->getCrc(evt.getRank()) > 0)
+	// 	foundPairings.push_back(*it2);
+	//       {
+	//       }
+	//   }
+      }
+      ++it;
+    }
+}
+
+bool MyPairConv::checkPairing(const Pairing& pairing,
+			   std::vector<Event>::iterator evtItCpy,
+			   //to check if end was reached
+			   const std::vector<Event>::iterator& endIt)
+{
+  bool result = false;
+  //std::vector<Event>::iterator evtItCpy = evtIt;
+  int length = pairing.length();
+  string key = "";
+  int rank = -1;
+  for (int i = 0; i < length && evtItCpy != endIt ; ++i){
+    key += evtItCpy->getOldId();
+    if (evtItCpy->getType() != 'F' && evtItCpy->getType() != 'A')
+      {// we check the rank
+	if (rank != -1
+	    && rank != evtItCpy->getRank())
+	  {
+	    cerr << "Rank has changed along the pairing (pairing aid: "
+		 << pairing.getAId() << ", crm: "<< evtItCpy->tlc 
+		 <<", event: " << evtItCpy->getOldId() << ")" << endl;
+	    return false;
+	  }
+	rank = evtItCpy->getRank();
+      }
+    ++evtItCpy;
+  }
+  
+  //This case should never happen: it is already checked in loadPairings
+  if (key == pairing.getOldId() && rank == -1)
+    {
+      cerr << "This pairing only had deadheads: " << pairing.getOldId() << endl;
+      exit(1);
+    }
+
+  if (key == pairing.getOldId())
+    //rank checking omitted && pairing.getCrc(rank) > 0)
+    {
+      result = true;
+    }
+  else
+    {
+      result = false;
+      
+    }
+  return result;
+}
+
+void MyPairConv::filterPairings(const std::vector<MyPairConv::Event>::iterator& evtIt,
+			     const std::vector<Event>::iterator& endIt,
+			     const vector<Pairing>& possiblePairings,
+			     map<string, Pairing>& filteredPairings)
+{
+  for (vector<Pairing>::const_reverse_iterator it = possiblePairings.rbegin();
+       it != possiblePairings.rend(); ++it)
+    {
+      if (checkPairing(*it, evtIt, endIt))
+	{
+	  filteredPairings.insert(map<string, 
+				  Pairing>::value_type(it->getOldId(), 
+								*it)); 
+	}
+    }
+}
+
+int  MyPairConv::getRankAndMove(std::vector<Event>::iterator& evtIt, 
+			     int length)
+{
+  int assignedRank = -1;
+
+    for (int i = 0; i < length; ++i)
+    {
+      if (evtIt->getType() != 'F')
+	{
+	  assignedRank = evtIt->getRank();
+	}
+      ++evtIt;
+    }
+
+  return assignedRank;
+}
+std::string getDatePart(const std::string& dateTimeShort)
+{
+  return "2015" + dateTimeShort.substr(0,4);
+}
+std::string getTimePart(const std::string& dateTimeShort)
+{
+  return dateTimeShort.substr(5,2) + dateTimeShort.substr(8,2);
+}
+
+std::string  MyPairConv::rabsString(const std::string& tlc,
+				    const  MyPairConv::Event& event)
+{
+  //RABS|ALVAREZ|N|20150630|20150701|OFF1|TYO|1500|1500|0|0
+  
+  string result = "RABS|" + tlc + "|N|" 
+    + getDatePart(event.getStartDt()) + "|"
+    + getDatePart(event.getEndDt()) + "|"
+    + event.eventCode + "|" + event.depPlace + "|"
+    + getTimePart(event.getStartDt()) + "|"
+    + getTimePart(event.getEndDt()) + "|0|0";
+  
+  return result;
+}
+
+std::string MyPairConv::rprgString(const std::string& tlc,
 			  const std::string& aId,
 			  const int rank)
 {
@@ -546,10 +697,226 @@ std::string MyPairConv::printRprgLine(const std::string& tlc,
   ostringstream convert;
   convert << rank;
   result += convert.str() + "|N|N";
-  cout << result << endl;
+  //cout << result << endl;
   return result;
 }
 
+template <typename T>
+string ToString(T val)
+{
+    stringstream stream;
+    stream << val;
+    return stream.str();
+}
+
+std::string MyPairConv::pprgString(const Pairing& pairing)
+{
+  //PPRG|0|0|0|0|0|0|0|0|1|0|0|1|M|105|import|Y||19700101||105||
+  string result = "PPRG|";
+  for (int i = 0; i<12 ;++i)
+    {
+      result += ToString(pairing.getCrc(i)) + "|";
+    }
+  result += "M|"+ pairing.getAId() + "|import|Y||19700101||" 
+    + pairing.getAId() + "||";
+  return result;
+}
+
+std::string  MyPairConv::rftrString(const std::string& tlc,
+				    const  MyPairConv::Event& event)
+{
+  //RFTR|046109|N|20150708|NH   53 |HND|0
+
+  string result = "RFTR|" + tlc + "|N|" + event.leg_day_of_orig
+    + "|NH " + event.getId().substr(1) + " |" + event.depPlace + "|0";
+  return result;
+}
+
+std::string  MyPairConv::plegString(const  MyPairConv::Event& event)
+{
+  //PLEG|20150705|NH  767 |ITM|0
+
+  string result = "PLEG|" + event.leg_day_of_orig
+    + "|NH " + event.getId().substr(1) + " |" + event.depPlace + "|0";
+  return result;
+}
+
+std::string  MyPairConv::pftrString(const  MyPairConv::Event& event)
+{
+  //PLEG|20150705|NH  767 |ITM|0
+
+  string result = "PFTR|" + event.leg_day_of_orig
+    + "|NH " + event.getId().substr(1) + " |" + event.depPlace + "|0";
+  return result;
+}
+
+//We delete unwanted pairings. Furthermore, we replace the new_id with the old id
+void MyPairConv::deleteUnWantedPairings()
+{
+    SSMap pairingMapWanted;
+    
+    for (SSMap::iterator pIt = pairingMap.begin();
+	 pIt != pairingMap.end(); ++ pIt)
+      {
+
+	if (pIt->second.size() > 1)
+	  {
+	    cerr << "Unexpcerd" << endl;
+	    exit(1);
+	  }
+	Pairing& pairing = pIt->second[0];
+	if (pairing.events.size() > 0)
+	  {
+	    pairingMapWanted.insert(SSMap::value_type(pairing.getOldId(), pIt->second));
+	  }
+      }    
+    pairingMap = pairingMapWanted;
+
+}
+
+void MyPairConv::pairingsInPreassignment()
+{
+  
+  int uniquePairing = 0;
+  int  noPairingFound = 0;
+  int nonuniquePairing = 0;
+
+  int assignedEvents = 0;
+  int unAssignedEvents = 0;
+
+  cout << "Finding pairings in ANA's preassignment." << endl;
+  cout  << "Number of crew members to process: " << crmEvents.size() << endl;
+  int counter = 0;
+  //cerr << "Loaded CrmEvents."<< endl;
+  for (std::vector<CrmEvents>::iterator crmIt = crmEvents.begin();
+       crmIt != crmEvents.end(); ++crmIt)
+    {
+      ++counter;
+      if (counter % 500 == 0)
+	{
+	  cout << "Crew member counter: " << counter << endl;
+	}
+
+      crmIt->rosterLines.clear();
+
+      std::vector<Event>::iterator evtIt = crmIt->events.begin();
+      while (evtIt != crmIt->events.end())
+	{
+	  if (evtIt->getType() == 'A')
+	    {
+	      crmIt->rosterLines.push_back(rabsString(crmIt->getTlc(), *evtIt));
+	      ++evtIt;
+	      assignedEvents++;
+	      continue;
+	    }
+	  vector<Pairing> possiblePairings;
+	  
+	  findPairings(*evtIt, possiblePairings);
+	  map<string, Pairing> filteredPairings;
+	  
+	  filterPairings(evtIt, crmIt->events.end(), 
+			 possiblePairings, filteredPairings);
+	  
+	  
+	  if (filteredPairings.size() == 1)
+	    {
+	      uniquePairing ++;
+	      Pairing& pairing = filteredPairings.begin()->second;
+
+	      int length = pairing.length();
+	      
+	      int assignedRank = getRankAndMove(evtIt,length);
+	      pairing.increaseCrc(assignedRank);
+	      	      
+	      string rprgLine = rprgString(crmIt->getTlc(),
+					      pairing.getAId(),
+					      assignedRank);
+	      crmIt->rosterLines.push_back(rprgLine);				      
+	      assignedEvents += length;
+	    }
+	  else
+	    {
+	      if (filteredPairings.size() == 0)
+		{
+		  // For a deadhead we can still try RFTR
+		  if (evtIt->getType() == 'F')
+		    {
+		      crmIt->rosterLines.push_back(rftrString(crmIt->getTlc(), *evtIt));
+		      assignedEvents++;
+		    }
+		  else
+		    {
+		      noPairingFound ++;
+		      cerr << "No pairing found for crm " << crmIt->getTlc() << ", event "
+			   << evtIt->getOldId() << endl;
+		      unAssignedEvents++;
+		    }
+		}	      
+	      else
+		{
+		  nonuniquePairing ++;
+		  unAssignedEvents++;
+		}
+	      evtIt++;
+	      //unAssignedEvents += crmIt->events.end() - evtIt;
+	      //evtIt = crmIt->events.end();
+ 	      
+	    }
+	  
+	}
+    }
+
+  cout << "Unique pairing found in " << uniquePairing << " cases." 
+       << endl;
+  cout << "No pairing found in " << noPairingFound << " cases." 
+       << endl;
+  cout << "No unique pairing found in " << nonuniquePairing << " cases." 
+       << endl;
+  cout << "Number of assigned events " << assignedEvents << "." 
+       << endl;
+  cout << "Number of unassigned events " << unAssignedEvents << "." 
+       << endl;
+}
+
+
+void  MyPairConv::writeRosterLines(std::ostream& rosterOut)
+{
+   for (vector<CrmEvents>::iterator crmIt = crmEvents.begin();
+	crmIt != crmEvents.end();
+	++crmIt)
+    {
+      for (vector<string>::iterator lineIt = crmIt->rosterLines.begin();
+	   lineIt != crmIt->rosterLines.end(); ++lineIt)
+	{
+	  rosterOut << (*lineIt) << endl;
+	}
+    }
+ 
+}
+
+
+void  MyPairConv::writePairings(std::ostream& pairingOut)
+{
+  for (SSMap::iterator pIt = pairingMap.begin();
+       pIt != pairingMap.end(); ++ pIt)
+    {
+      Pairing& pairing = pIt->second[0];
+      pairingOut  << pprgString(pairing) << endl;
+      for (vector<Event>::iterator evtIt = pairing.events.begin();
+	   evtIt != pairing.events.end();++evtIt)
+	{
+	  if (evtIt->getType() == 'L')
+	    {
+	      pairingOut  << plegString(*evtIt) << endl;
+	    }
+	  else
+	    {
+	      pairingOut  << pftrString(*evtIt) << endl;
+	    }
+	}
+    }
+
+}
 void MyPairConv::run(std::istream& pairings,
 		  std::istream& legs,
 		  std::ostream& output)

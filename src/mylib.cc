@@ -39,7 +39,7 @@ void MyClass::loadPairings(istream& in){
       //exit (EXIT_FAILURE);
     }
     if (a.onlyDeadHeads()){
-      cerr << "Only deadheads: "<< a.getId() << endl;
+      cerr << "Only deadheads: "<< a.getOldId() << endl;
       exit(1);
     }
     pairingMap[pId].push_back(a);
@@ -69,7 +69,7 @@ void MyClass::loadCrmEvents(istream& legs)
       is >> rank;
 
       string curTlc = tlc;
-      CrmEvents::Event evt(leg,rank);
+      Event evt(leg,rank);
   
       if (lTlc != curTlc)
 	{
@@ -96,13 +96,13 @@ void MyClass::loadCrmEvents(istream& legs)
 }
 
 
-void MyClass::findPairings(const MyClass::CrmEvents::Event& evt,
-			   vector<MyClass::Pairing>& foundPairings)
+void MyClass::findPairings(const MyClass::Event& evt,
+			   vector<Pairing>& foundPairings)
 {
   foundPairings.clear();
-  SSMap::iterator it = pairingMap.lower_bound(evt.getId());
+  SSMap::iterator it = pairingMap.lower_bound(evt.getOldId());
   while (it != pairingMap.end()
-	 && isPrefix(evt.getId(),it->first))
+	 && isPrefix(evt.getOldId(),it->first))
     {
       //if we don't consider crc then this is it:
       //foundPairings.insert(foundPairings.end(),
@@ -230,18 +230,18 @@ int MyClass::selfPrefix(){
 }
 
 
-bool MyClass::checkPairing(const MyClass::Pairing& pairing,
-			   std::vector<CrmEvents::Event>::iterator evtItCpy,
+bool MyClass::checkPairing(const Pairing& pairing,
+			   std::vector<Event>::iterator evtItCpy,
 			   //to check if end was reached
-			   const std::vector<CrmEvents::Event>::iterator& endIt)
+			   const std::vector<Event>::iterator& endIt)
 {
   bool result = false;
-  //std::vector<CrmEvents::Event>::iterator evtItCpy = evtIt;
+  //std::vector<Event>::iterator evtItCpy = evtIt;
   int length = pairing.length();
   string key = "";
   int rank = -1;
   for (int i = 0; i < length && evtItCpy != endIt ; ++i){
-    key += evtItCpy->getId();
+    key += evtItCpy->getOldId();
     if (evtItCpy->getType() != 'F')
       {// we check the rank
 	if (rank != -1
@@ -256,13 +256,13 @@ bool MyClass::checkPairing(const MyClass::Pairing& pairing,
   }
   
   //This case should never happen: it is already checked in loadPairings
-  if (key == pairing.getId() && rank == -1)
+  if (key == pairing.getOldId() && rank == -1)
     {
-      cerr << "This pairing only had deadheads: " << pairing.getId() << endl;
+      cerr << "This pairing only had deadheads: " << pairing.getOldId() << endl;
       exit(1);
     }
 
-  if (key == pairing.getId())
+  if (key == pairing.getOldId())
     //rank checking omitted && pairing.getCrc(rank) > 0)
     {
       result = true;
@@ -275,25 +275,25 @@ bool MyClass::checkPairing(const MyClass::Pairing& pairing,
   return result;
 }
 
-void MyClass::filterPairings(const std::vector<MyClass::CrmEvents::Event>::iterator& evtIt,
-			     const std::vector<CrmEvents::Event>::iterator& endIt,
-			     const vector<MyClass::Pairing>& possiblePairings,
-			     map<string, MyClass::Pairing>& filteredPairings)
+void MyClass::filterPairings(const std::vector<MyClass::Event>::iterator& evtIt,
+			     const std::vector<Event>::iterator& endIt,
+			     const vector<Pairing>& possiblePairings,
+			     map<string, Pairing>& filteredPairings)
 {
-  for (vector<MyClass::Pairing>::const_iterator it = possiblePairings.begin();
-       it != possiblePairings.end(); ++it)
+  for (vector<Pairing>::const_reverse_iterator it = possiblePairings.rbegin();
+       it != possiblePairings.rend(); ++it)
     {
       if (checkPairing(*it, evtIt, endIt))
 	{
 	  filteredPairings.insert(map<string, 
-				  MyClass::Pairing>::value_type(it->getId(), 
+				  Pairing>::value_type(it->getOldId(), 
 								*it)); 
 	}
     }
 }
 
-int  MyClass::getRankAndMove(std::vector<CrmEvents::Event>::iterator& evtIt, 
-		   int length){
+int  MyClass::getRankAndMove(std::vector<Event>::iterator& evtIt, 
+			     int length){
   int assignedRank = -1;
 
     for (int i = 0; i < length; ++i)
@@ -350,13 +350,13 @@ void MyClass::run(std::istream& pairings,
        crmIt != crmEvents.end(); ++crmIt)
     {
       cout << "Processing crm> " << crmIt->getTlc() << endl;
-      std::vector<CrmEvents::Event>::iterator evtIt = crmIt->events.begin();
+      std::vector<Event>::iterator evtIt = crmIt->events.begin();
       while (evtIt != crmIt->events.end())
 	{
-	  vector<MyClass::Pairing> possiblePairings;
+	  vector<Pairing> possiblePairings;
 	  
 	  findPairings(*evtIt, possiblePairings);
-	  map<string, MyClass::Pairing> filteredPairings;
+	  map<string, Pairing> filteredPairings;
 	  filterPairings(evtIt, crmIt->events.end(), 
 			 possiblePairings, filteredPairings);
 	  
