@@ -321,7 +321,7 @@ TEST (testCrmEvents, testCrmEvents1)
   ASSERT_EQ(0,a.numOfEvents());
 }
 
-TEST (testLoad, testLoad1){
+TEST (testLoadPairing, testLoadPairing1){
 
   {
     stringstream ss;
@@ -332,6 +332,8 @@ TEST (testLoad, testLoad1){
 
     a.loadPairings(ss);
     ASSERT_EQ(2, a.size());
+    ASSERT_EQ("0705 02:40D  23  767  770  529  526  551D 624  263  268,105,0|0|0|0|0|0|0|0|1|0|0|1,D,787,D0023A,3,D 023  767  770  529  ?  526  551  ?  D 624  263  268,KMJ KOJ,11:40--21:05 16:35--21:30 11:55--21:25, 5+10  2+15  3+35,11+00, 9+25  4+55  9+30,23+50,2,CF:0,CP:0,PP:0,PY:1,XX:0,ZX:0,ZZ:1,?,?,?,?,5,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?",
+	      a.pairingMap["0705 02:40D  23  767  770  529  526  551D 624  263  268"][0].origLine);
   }
   /*
   {

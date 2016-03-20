@@ -105,6 +105,7 @@ class MyPairConv{
 
   public:
     std::vector<MyPairConv::Event> events;
+    std::string origLine;
     Pairing(const std::string& _id, 
 	    const std::string& _aId,
 	    //we expect crcString to be 12 non-negative integers with 12 | 
@@ -204,12 +205,12 @@ class MyPairConv{
 
  private:
   typedef std::map< std::string, std::vector<Pairing> > SSMap; 
-  SSMap pairingMap;
   int duplicate;
   int _selfPrefix;
 
 
  public:
+  SSMap pairingMap;
   int wantedPairings,unWantedPairings;
   std::vector<CrmEvents> crmEvents;
 
@@ -235,7 +236,7 @@ class MyPairConv{
 
   void parseCsvHeader(std::string& headerLine,
 			     const char separator = ',');
-  void parseCsvLine(std::string& line,
+  void parseCsvLine(std::string line,
 		    const char separator = ',');
   //This was not finished
   //void parseOrigCsvFile(std::istream& infile);
@@ -252,6 +253,8 @@ class MyPairConv{
   bool whoTakesThisPairing(  Pairing& pairing);
   void  identifyPairingEvents();
   
+  void  writeIdentifiedPairings(std::ostream& pairingOut);
+
   void findPairings(const MyPairConv::Event& evt,
 		    std::vector<Pairing>& foundPairings);
 

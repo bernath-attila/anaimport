@@ -5,6 +5,8 @@
 
 using namespace std;
 
+
+
 void MyPairConv::loadPairings(istream& infile){
   duplicate = 0;
   pairingMap.clear();
@@ -35,6 +37,7 @@ void MyPairConv::loadPairings(istream& infile){
       string pAId = csvValues["pairing_aid"];
       string crcString = csvValues["crc"];
       Pairing a(pId,pAId,crcString);
+      a.origLine = line;
       if (a.onlyDeadHeads()){
 	cerr << "Only deadheads: "<< a.getId() << endl;
 	exit(1);
@@ -86,7 +89,7 @@ bool MyPairConv::nextField(stringstream& is,
   return result;
 }
 
-void MyPairConv::parseCsvLine(std::string& line,
+void MyPairConv::parseCsvLine(std::string line,
 			      const char separator)
 {
   csvValues.clear();
@@ -310,7 +313,7 @@ std::string  MyPairConv::concatEventIds(std::vector<Event>::iterator evtIt,
   return result;
 }
 
-//We add the events and calculate the old id
+//We add the events and calculate the old id: we only add legs and SBYs
 void MyPairConv::Pairing::addEvents(std::vector<MyPairConv::Event>::iterator evtIt)
 {
   events.clear();
@@ -319,10 +322,26 @@ void MyPairConv::Pairing::addEvents(std::vector<MyPairConv::Event>::iterator evt
     {
       oldId += evtIt->getOldId();
       // we could check that evtIt has not reached the end
-      if (evtIt->getType() != 'A')
+      if (evtIt->getType() != 'A'
+	  || evtIt->getId().substr(2,2) == "SB")
 	{
 	  events.push_back(*evtIt);
 	}
+      /*
+	if (evtIt->getType() == 'L')
+	{
+	  eventLines.push_back(plegString(*evtIt));
+	}
+      if (evtIt->getType() == 'F')
+	{
+	  eventLines.push_back(pftrString(*evtIt));
+	}
+      if (evtIt->getType() == 'A'
+	  && evtIt->getId().substr(2,2) == "SB")
+	{
+	  eventLines.push_back(pabsString(*evtIt));
+	}
+      */
       ++evtIt;
     }
 }
@@ -391,8 +410,26 @@ void  MyPairConv::identifyPairingEvents()
 	  cout << "Pairing counter: " << counter << endl;
 	}
     }
+
   
 }
+
+
+
+void  MyPairConv::writeIdentifiedPairings(std::ostream& pairingOut)
+{
+  string headerLine = "#pairing_oldid,pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
+  pairingOut  << headerLine << endl;
+
+  for (SSMap::iterator pIt = pairingMap.begin();
+       pIt != pairingMap.end(); ++ pIt)
+    {
+      Pairing& pairing = pIt->second[0];
+      pairingOut  << pairing.getOldId() << "," <<
+	pairing.origLine <<  pairingOut  << endl;
+    }
+}
+
 void  MyPairConv::checkConsecutiveEvents()
 {
   
