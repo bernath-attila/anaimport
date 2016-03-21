@@ -254,7 +254,6 @@ class MyPairConv{
   void loadCrewCodeLegKey(std::istream& infile);
 
   void loadPairings(std::istream& in, bool identifiedPairings = false);
-  void loadCrmEvents(std::istream& in);
 
   void  checkConsecutiveEvents();
 
@@ -353,9 +352,6 @@ class MyPairConv{
 		     const std::string& preassToImportFile, 
 		     const std::string& pairingsToImportFile);
 
-  void run(std::istream& pairings,
-	   std::istream& legs,
-	   std::ostream& output);
 
 }; 
 

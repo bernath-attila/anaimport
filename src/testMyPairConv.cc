@@ -505,49 +505,6 @@ TEST (testLoadCrewCodeLegKey, testLoadCrewCodeLegKey1)
   }
 }
 
-TEST (testLoadEvents, testLoadEvents)
-{
-  {
-
-    stringstream legs;
-    legs << "tlc1,leg1,1\n";
-    legs << "tlc1,leg2,2\n";
-    legs << "tlc1,leg3,1\n";
-    legs << "tlc2,leg1,1\n";
-    legs << "tlc2,leg2,3\n";
-    legs << "tlc3,leg1,4\n";
-    MyPairConv a;
-    a.loadCrmEvents(legs);
-    ASSERT_EQ(3,a.numOfCrms()); 
-    ASSERT_EQ(3, a.crmEvents[0].numOfEvents());
-    ASSERT_EQ(1, a.crmEvents[2].numOfEvents());
-  }
-}
-
-
-
-TEST (testRun, testRun1)
-{
-  {
-
-    stringstream legs;
-    legs << "tlc1,leg1F,1\n";
-    legs << "tlc1,leg2L,1\n";
-    legs << "tlc1,leg3F,2\n";
-    legs << "tlc2,leg1F,2\n";
-    legs << "tlc2,leg2L,2\n";
-
-    stringstream pairings;
-    pairings << "#pairing_newid,pairing_aid,crc_positions\n";
-    pairings << "0712 15:00leg1Fleg2L,aid1,0|1|1|0|0|0|0|0|0|0|0|0\n";
-    pairings << "0712 15:00leg3L,aid2,0|0|3|0|0|0|0|0|0|0|0|0\n";
- 
-    MyPairConv a;
-    //a.run(pairings,legs,cout);
-
-  }
-}
-
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);

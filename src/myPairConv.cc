@@ -267,54 +267,6 @@ void MyPairConv::loadCrewCodeLegKey(istream& infile)
   }
 }
 
-void MyPairConv::loadCrmEvents(istream& legs)
-{
-  crmEvents.clear();
-
-  string curKey = "";
-  const int maxSize = 512;
-  char tlc[maxSize] = "";
-  char leg[maxSize] = "";
-  char rankStr[maxSize] = "";
-  
-  string lTlc = tlc;
-  CrmEvents a;
-
-  while (legs.getline(tlc,maxSize,',')
-	 && legs.getline(leg,maxSize,',')
-	 && legs.getline(rankStr,maxSize))
-    {
-      stringstream is;
-      is << rankStr;
-      int rank;
-      is >> rank;
-
-      string curTlc = tlc;
-      Event evt(leg,rank);
-  
-      if (lTlc != curTlc)
-	{
-	  //cout << "New crm: "<< curTlc << endl;
-	  if (lTlc != ""){
-	    crmEvents.push_back(a);
-	  }
-	  
-	  lTlc = curTlc;
-	  a.setTlc(lTlc);
-	  a.addEvent(evt);
-	}
-      else
-	{
-	  a.addEvent(evt);
-	}
-      //cerr << "tlc: "<< tlc<< ", leg: "<< leg << ", rank: " << rank << endl;
-    }
-  //write last tlc, if there was anything in the file at all
-  if (lTlc != ""){
-    crmEvents.push_back(a);
-  }
-
-}
 
 std::string  MyPairConv::concatEventIds(std::vector<Event>::iterator evtIt,
 					const std::vector<Event>::iterator& evtEndIt,
@@ -1174,24 +1126,5 @@ void MyPairConv::createRosters(const std::string& identifiedPairingsFile,
     pairingsToImport.open(pairingsToImportFile.c_str());
     writePairings(pairingsToImport);
     cout << "Pairings written to: " << pairingsToImportFile << endl;
-}
-void MyPairConv::run(std::istream& pairings,
-		  std::istream& legs,
-		  std::ostream& output)
-{
-  //load pairings
-  loadPairings(pairings);
-  //check the pairings
-  // if (getLoadFailures()>0
-  //     || selfPrefix())
-  //   {
-  //     cerr << "Problems with the pairings."<< endl;
-  //     exit(1);
-  //   }
-  loadCrmEvents(legs);
-
-  //cerr << "Loaded pairings."<< endl;
-  
-
 }
 
