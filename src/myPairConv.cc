@@ -1,4 +1,5 @@
 #include<sstream>
+#include<fstream>
 #include <iostream>
 #include<cstdlib>
 #include "myPairConv.h"
@@ -6,13 +7,25 @@
 using namespace std;
 
 
+std::string getDatePart(const std::string& dateTimeShort)
+{
+  return "2015" + dateTimeShort.substr(0,4);
+}
+std::string getTimePart(const std::string& dateTimeShort)
+{
+  return dateTimeShort.substr(5,2) + dateTimeShort.substr(8,2);
+}
 
-void MyPairConv::loadPairings(istream& infile){
+void MyPairConv::loadPairings(istream& infile, bool identifiedPairings){
   duplicate = 0;
   pairingMap.clear();
   //const int maxSize = 512;
   
   string expectedHeader = "#pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
+  if (identifiedPairings)
+    {
+      expectedHeader = "#pairing_oldid,pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,eventLines";
+    }
   string line;
   //check header
   if (!std::getline(infile,line)
@@ -38,6 +51,13 @@ void MyPairConv::loadPairings(istream& infile){
       string crcString = csvValues["crc"];
       Pairing a(pId,pAId,crcString);
       a.origLine = line;
+      a.intOrDom = csvValues["I/D"][0];
+
+      if (identifiedPairings)
+	{
+	  a.setOldId(csvValues["pairing_oldid"]);
+	  a.eventLines = csvValues["eventLines"];
+	}
       if (a.onlyDeadHeads()){
 	cerr << "Only deadheads: "<< a.getId() << endl;
 	exit(1);
@@ -78,9 +98,6 @@ bool MyPairConv::nextField(stringstream& is,
 			   const char separator)
 {
   bool result = false;
-  const int maxSize = 128;
-  //todo: improve this
-  char charArr[maxSize] = "";
   if (is.getline(charArr, maxSize, separator))
     result = true;
   else
@@ -119,7 +136,8 @@ void MyPairConv::parseCsvLine(std::string line,
   // Just to make sure no duplicate key in headerVector
   if (csvValues.size() != headerVector.size())
     {
-      cerr << "Failure parsing csv line (headerVector and csvValues size): "
+      cerr << "Failure parsing csv line (headerVector.size() = " << headerVector.size() 
+	   << ",  csvValues.size() = " << csvValues.size() << "): "
 	+ line << endl;
       exit(1);
     }
@@ -313,11 +331,119 @@ std::string  MyPairConv::concatEventIds(std::vector<Event>::iterator evtIt,
   return result;
 }
 
+//bool isStandby()
+
+std::string MyPairConv::getSbyCode(const std::string& anaSbyCode, const char intOrDom,
+				   const int pairingLength)
+{
+  string result = "";
+
+  
+  if (intOrDom == 'D')
+    {
+      if (anaSbyCode == "  SB1")
+	{
+	  if (pairingLength == 1)
+	    {
+	      result = "SB11";
+	    }
+	  else if (pairingLength == 2)
+	    {
+	      result = "SB12D";
+	    }
+	  else if (pairingLength == 4)
+	    {
+	      result = "SB14";
+	    }
+	  else
+	    {
+	      cerr << "Domestic: length = 1,2, or 4" << endl;
+	      exit(1);
+	  
+	    }
+	  
+	}
+      else
+	{
+	  cerr << "Domestic: SB1" << endl;
+	  exit(1);
+	  
+	}
+    }
+  else if (intOrDom == 'I')
+    {
+      if (anaSbyCode == "  SB2")
+	{
+	  if (pairingLength == 1)
+	    {
+	      result = "SB21";
+	    }
+	  else if (pairingLength == 2)
+	    {
+	      result = "SB22";
+	    }
+	  else if (pairingLength == 4)
+	    {
+	      result = "SB24";
+	    }
+	  else
+	    {
+	      cerr << "International SB2: length = 1,2, or 4" << endl;
+	      exit(1);
+	  
+	    }
+	  
+	}
+      else if (anaSbyCode == "  SB1")
+	{
+	  if (pairingLength == 2)
+	    {
+	      result = "SB12I";
+	    }
+	  else
+	    {
+	      cerr << "International SB1: length = 2" << endl;
+	      exit(1);
+	    }
+	}
+      else
+	{
+	  cerr << "International code = SB1 or SB2" << endl;
+	  exit(1);
+
+	}
+    }
+  else
+    {
+      cerr << "intOrDom = I or D" << endl;
+      exit(1);
+    }
+  return result;
+}
+
+std::string MyPairConv::pabsString(const Event& event,
+				   const std::string& ourEventCode)
+{
+  //PABS|20150720|20150721|SB14|TYO|2100|0200|0|0
+
+
+
+  string result = "PABS|"
+    + getDatePart(event.getStartDt()) + "|"
+    + getDatePart(event.getEndDt()) + "|"
+    + ourEventCode + "|" + event.depPlace + "|"
+    + getTimePart(event.getStartDt()) + "|"
+    + getTimePart(event.getEndDt()) + "|0|0";
+
+  return result;  
+}
+
 //We add the events and calculate the old id: we only add legs and SBYs
 void MyPairConv::Pairing::addEvents(std::vector<MyPairConv::Event>::iterator evtIt)
 {
   events.clear();
   oldId = "";
+  bool foundLeg = false;
   for (int i = 0; i < length(); ++i)
     {
       oldId += evtIt->getOldId();
@@ -327,23 +453,32 @@ void MyPairConv::Pairing::addEvents(std::vector<MyPairConv::Event>::iterator evt
 	{
 	  events.push_back(*evtIt);
 	}
-      /*
+      
 	if (evtIt->getType() == 'L')
 	{
-	  eventLines.push_back(plegString(*evtIt));
+	  foundLeg = true;
+	  eventLines += plegString(*evtIt) + ";";
 	}
       if (evtIt->getType() == 'F')
 	{
-	  eventLines.push_back(pftrString(*evtIt));
+	  eventLines += pftrString(*evtIt) + ";";
 	}
       if (evtIt->getType() == 'A'
 	  && evtIt->getId().substr(2,2) == "SB")
 	{
-	  eventLines.push_back(pabsString(*evtIt));
+	  eventLines += pabsString(*evtIt, MyPairConv::getSbyCode(evtIt->getId(),
+								  this->intOrDom,
+								  this->length())) + ";";
 	}
-      */
+      
       ++evtIt;
     }
+  if (!foundLeg)
+    {
+      eventLines += "PACT|737;";
+      
+    }
+
 }
 
 bool MyPairConv::whoTakesThisPairing( MyPairConv::Pairing& pairing)
@@ -418,7 +553,7 @@ void  MyPairConv::identifyPairingEvents()
 
 void  MyPairConv::writeIdentifiedPairings(std::ostream& pairingOut)
 {
-  string headerLine = "#pairing_oldid,pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
+  string headerLine = "#pairing_oldid,pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,eventLines";
   pairingOut  << headerLine << endl;
 
   for (SSMap::iterator pIt = pairingMap.begin();
@@ -426,7 +561,9 @@ void  MyPairConv::writeIdentifiedPairings(std::ostream& pairingOut)
     {
       Pairing& pairing = pIt->second[0];
       pairingOut  << pairing.getOldId() << "," <<
-	pairing.origLine <<  pairingOut  << endl;
+	pairing.origLine  << "," << pairing.eventLines;
+      pairingOut  << endl;
+      
     }
 }
 
@@ -710,24 +847,21 @@ int  MyPairConv::getRankAndMove(std::vector<Event>::iterator& evtIt,
 
   return assignedRank;
 }
-std::string getDatePart(const std::string& dateTimeShort)
-{
-  return "2015" + dateTimeShort.substr(0,4);
-}
-std::string getTimePart(const std::string& dateTimeShort)
-{
-  return dateTimeShort.substr(5,2) + dateTimeShort.substr(8,2);
-}
 
 std::string  MyPairConv::rabsString(const std::string& tlc,
 				    const  MyPairConv::Event& event)
 {
   //RABS|ALVAREZ|N|20150630|20150701|OFF1|TYO|1500|1500|0|0
-  
+  string depPlace = event.depPlace;
+  if (depPlace == "TYT" || depPlace == "TEC" || depPlace == "TYN" )
+    {
+      depPlace = "TYO";
+    }
+
   string result = "RABS|" + tlc + "|N|" 
     + getDatePart(event.getStartDt()) + "|"
     + getDatePart(event.getEndDt()) + "|"
-    + event.eventCode + "|" + event.depPlace + "|"
+    + event.eventCode + "|" + depPlace + "|"
     + getTimePart(event.getStartDt()) + "|"
     + getTimePart(event.getEndDt()) + "|0|0";
   
@@ -850,66 +984,68 @@ void MyPairConv::pairingsInPreassignment()
 	{
 	  if (evtIt->getType() == 'A')
 	    {
-	      crmIt->rosterLines.push_back(rabsString(crmIt->getTlc(), *evtIt));
+	      if (evtIt->getId() != " IVL1")
+		{
+		  crmIt->rosterLines.push_back(rabsString(crmIt->getTlc(), *evtIt));
+		  assignedEvents++;
+		}
+	      else
+		{
+		  unAssignedEvents++;
+		}
 	      ++evtIt;
-	      assignedEvents++;
-	      continue;
-	    }
-	  vector<Pairing> possiblePairings;
-	  
-	  findPairings(*evtIt, possiblePairings);
-	  map<string, Pairing> filteredPairings;
-	  
-	  //cout << "Possible pairing : " << possiblePairings[0].getOldId() << endl;
-	  filterPairings(evtIt, crmIt->events.end(), 
-			 possiblePairings, filteredPairings);
-	  
-	  
-	  if (filteredPairings.size() == 1)
-	    {
-	      uniquePairing ++;
-	      Pairing& pairing = filteredPairings.begin()->second;
-
-	      int length = pairing.length();
-	      
-	      int assignedRank = getRankAndMove(evtIt,length);
-	      pairing.increaseCrc(assignedRank);
-	      	      
-	      string rprgLine = rprgString(crmIt->getTlc(),
-					      pairing.getAId(),
-					      assignedRank);
-	      crmIt->rosterLines.push_back(rprgLine);				      
-	      assignedEvents += length;
 	    }
 	  else
 	    {
-	      if (filteredPairings.size() == 0)
+	      vector<Pairing> possiblePairings;
+	  
+	      findPairings(*evtIt, possiblePairings);
+	      map<string, Pairing> filteredPairings;
+	  
+	      filterPairings(evtIt, crmIt->events.end(), 
+			     possiblePairings, filteredPairings);
+	  
+	      if (filteredPairings.size() > 0)
 		{
-		  // For a deadhead we can still try RFTR
-		  if (evtIt->getType() == 'F')
+
+		  if (filteredPairings.size() == 1)
 		    {
-		      crmIt->rosterLines.push_back(rftrString(crmIt->getTlc(), *evtIt));
-		      assignedEvents++;
+		      uniquePairing ++;
 		    }
 		  else
 		    {
-		      noPairingFound ++;
-		      //cerr << "No pairing found for crm " << crmIt->getTlc() << ", event "
-		      //   << evtIt->getOldId() << endl;
-		      unAssignedEvents++;
+		      nonuniquePairing++;
 		    }
-		}	      
+	      
+		  //Take the longest of the found pairings
+		  Pairing& pairing = filteredPairings.rbegin()->second;
+
+		  int length = pairing.length();
+	      
+		  int assignedRank = getRankAndMove(evtIt,length);
+	      
+		  //This is wrong here: we increase the crc of a copy
+		  pairing.increaseCrc(assignedRank);
+	      	      
+		  string rprgLine = rprgString(crmIt->getTlc(),
+					       pairing.getAId(),
+					       assignedRank);
+		  crmIt->rosterLines.push_back(rprgLine);				      
+		  assignedEvents += length;
+		}
 	      else
 		{
-		  nonuniquePairing ++;
+		  noPairingFound ++;
+		  //cerr << "No pairing found for crm " << crmIt->getTlc() << ", event "
+		  //   << evtIt->getOldId() << endl;
 		  unAssignedEvents++;
-		}
-	      evtIt++;
-	      //unAssignedEvents += crmIt->events.end() - evtIt;
-	      //evtIt = crmIt->events.end();
+		  evtIt++;
+		  //unAssignedEvents += crmIt->events.end() - evtIt;
+		  //evtIt = crmIt->events.end();
  	      
-	    }
+		}
 	  
+	    }
 	}
     }
 
@@ -949,20 +1085,95 @@ void  MyPairConv::writePairings(std::ostream& pairingOut)
     {
       Pairing& pairing = pIt->second[0];
       pairingOut  << pprgString(pairing) << endl;
-      for (vector<Event>::iterator evtIt = pairing.events.begin();
-	   evtIt != pairing.events.end();++evtIt)
-	{
-	  if (evtIt->getType() == 'L')
-	    {
-	      pairingOut  << plegString(*evtIt) << endl;
-	    }
-	  else
-	    {
-	      pairingOut  << pftrString(*evtIt) << endl;
-	    }
-	}
+      std::string s = pairing.eventLines;
+      std::replace( s.begin(), s.end(), ';', '\n');
+      pairingOut  << s;
+
+      // for (vector<Event>::iterator evtIt = pairing.events.begin();
+      // 	   evtIt != pairing.events.end();++evtIt)
+      // 	{
+      // 	  if (evtIt->getType() == 'L')
+      // 	    {
+      // 	      pairingOut  << plegString(*evtIt) << endl;
+      // 	    }
+      // 	  else
+      // 	    {
+      // 	      pairingOut  << pftrString(*evtIt) << endl;
+      // 	    }
+      // 	}
     }
 
+}
+
+void MyPairConv::identifyPairingsFromRefScen(const std::string& pairingsFile,
+					     const std::string& refScenFile,
+					     const std::string& identifiedPairingsFile)
+{
+
+  ifstream refScenStream;
+  refScenStream.open(refScenFile.c_str());
+  loadCrewCodeLegKey(refScenStream);	     
+
+
+  ifstream pairingsStream;
+  pairingsStream.open(pairingsFile.c_str());
+  loadPairings(pairingsStream);
+
+  int selfPrefixes = selfPrefix();
+  //   returns true iff searchFor is the prefix of a key in the map
+  cout << "Number of key collisions for pairings: " << getLoadFailures()
+       << endl;
+  cout << "Number of key prefixes for pairings: " << selfPrefixes
+       << endl;
+    
+
+  identifyPairingEvents();
+  cout << "Number of wanted pairings: " << wantedPairings
+       << endl;
+  cout << "Number of unwanted pairings: " << unWantedPairings
+       << endl;
+  
+
+  deleteUnWantedPairings();
+
+
+  ofstream identifiedPairings;
+  identifiedPairings.open(identifiedPairingsFile.c_str());
+  writeIdentifiedPairings(identifiedPairings);
+  cout << "Identified pairings written to: " << identifiedPairingsFile << endl;
+
+}
+
+
+void MyPairConv::createRosters(const std::string& identifiedPairingsFile, 
+			       const std::string& preassFile, 
+			       const std::string& preassToImportFile, 
+			       const std::string& pairingsToImportFile)
+{
+  
+  ifstream pairingsStream;
+  pairingsStream.open(identifiedPairingsFile.c_str());
+  loadPairings(pairingsStream, true);
+  
+  
+  
+  ifstream anaPreassStream;
+    //anaPreassStream.open("/media/sf_ANADataForCpp/cppinput/CrewCode_LegKey.csv");
+    //anaPreassStream.open("/media/sf_ANADataForCpp/cppinput/CrewCode_LegKey_firstFew.csv");
+    anaPreassStream.open(preassFile.c_str());
+    loadCrewCodeLegKey(anaPreassStream);	     
+
+    pairingsInPreassignment();
+
+    ofstream rosterPreassOut;
+    rosterPreassOut.open(preassToImportFile.c_str());
+    writeRosterLines(rosterPreassOut);
+    cout << "Roster preassignment written to " <<preassToImportFile << endl;
+
+    ofstream pairingsToImport;
+    pairingsToImport.open(pairingsToImportFile.c_str());
+    writePairings(pairingsToImport);
+    cout << "Pairings written to: " << pairingsToImportFile << endl;
 }
 void MyPairConv::run(std::istream& pairings,
 		  std::istream& legs,

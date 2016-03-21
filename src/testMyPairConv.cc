@@ -164,6 +164,8 @@ TEST (testPairing, testPairing1)
     ASSERT_EQ(3, a1.events.size());
     ASSERT_EQ("0712 15:00D  710712 19:00  5780712 20:00 IVL10712 22:00  416", 
 	      a1.getOldId());
+
+    ASSERT_EQ(3, std::count(a1.eventLines.begin(), a1.eventLines.end(), ';'));
   }
 }
 
@@ -190,6 +192,21 @@ TEST (testEvent, testEvent1)
   }
 
 }
+
+TEST (testGetSbyCode, testGetSbyCode1)
+{
+
+  ASSERT_EQ("SB11", MyPairConv::getSbyCode("  SB1",'D',1));
+  ASSERT_EQ("SB12D", MyPairConv::getSbyCode("  SB1",'D',2));
+  ASSERT_EQ("SB14", MyPairConv::getSbyCode("  SB1",'D',4));
+
+  ASSERT_EQ("SB12I", MyPairConv::getSbyCode("  SB1",'I',2));
+
+  ASSERT_EQ("SB21", MyPairConv::getSbyCode("  SB2",'I',1));
+  ASSERT_EQ("SB22", MyPairConv::getSbyCode("  SB2",'I',2));
+  ASSERT_EQ("SB24", MyPairConv::getSbyCode("  SB2",'I',4));
+}
+
 TEST (testRprgString, testRprgString1)
 {
 
@@ -210,8 +227,24 @@ TEST (testRftrString, testRftrString1)
   ASSERT_EQ("RFTR|ALVAREZ|N|20150728|NH  211 |HND|0", 
 	    MyPairConv::rftrString("ALVAREZ", a.crmEvents[0].events[0]));
 }
+TEST (testPabsString, testPabsString1)
+{
 
-TEST (rabsString, rabsString1)
+    stringstream legs;
+
+    legs << "#emp_num,jod_dt,job_num,event_newid,event_start_dt,event_end_dt,leg_day_of_orig,rank,ORG_EMP_NUM,ORG_AIRLINE_CD,JOB_DT,JOB_NO,CARRIER,JOB_CD,DEP_PLACE,ARR_PLACE,DUTY_CD,DEP_TIME,ARR_TIME,FLT_BASE_DT,FLT_AIRLINE_CD,FLT_NUM_OR_JOB_CD,SCH_DEP_AIRP_CD,SCH_ARR_AIRP_CD,OPE_ODR,RANK\n";
+    legs << "011135,20150717,10,  SB1,0717 04:00,0717 09:00,        ,-1,011135,NH,20150717,10,   ,SB1,TYO,TYO,   ,2015-07-17 13:00:00.00,2015-07-17 18:00:00.00,        ,   ,,,,,\n";
+    MyPairConv a;
+    a.loadCrewCodeLegKey(legs);
+    //PABS|20150720|20150721|SB14|TYO|2100|0200|0|0
+
+    //MyPairConv::Event event(" OFF1",1);
+    ASSERT_EQ("PABS|20150717|20150717|SB14|TYO|0400|0900|0|0",
+	      MyPairConv::pabsString(a.crmEvents[0].events[0], "SB14"));
+    
+
+}
+TEST (testRabsString, testRabsString1)
 {
   {
 
@@ -334,6 +367,27 @@ TEST (testLoadPairing, testLoadPairing1){
     ASSERT_EQ(2, a.size());
     ASSERT_EQ("0705 02:40D  23  767  770  529  526  551D 624  263  268,105,0|0|0|0|0|0|0|0|1|0|0|1,D,787,D0023A,3,D 023  767  770  529  ?  526  551  ?  D 624  263  268,KMJ KOJ,11:40--21:05 16:35--21:30 11:55--21:25, 5+10  2+15  3+35,11+00, 9+25  4+55  9+30,23+50,2,CF:0,CP:0,PP:0,PY:1,XX:0,ZX:0,ZZ:1,?,?,?,?,5,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?",
 	      a.pairingMap["0705 02:40D  23  767  770  529  526  551D 624  263  268"][0].origLine);
+    ASSERT_EQ('D',
+	      a.pairingMap["0705 02:40D  23  767  770  529  526  551D 624  263  268"][0].intOrDom);
+  }
+  {
+     stringstream ss;
+    ss << "#pairing_oldid,pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,eventLines\n";
+
+
+  ss << "0630 20:10  SB10701 20:50  SB10702 22:50  SB10703 23:35  SB1,0630 20:10  SB1  SB1  SB1  SB1,686801,0|0|0|0|0|0|0|0|1|0|0|0,D,   ,S0510Z,4,SB1  ?  SB1  ?  SB1  ?  SB1,TYO TYO TYO,05:10--10:10 05:50--10:50 07:50--12:50 08:35--13:35, 0+00  0+00  0+00  0+00, 0+00, 5+00  5+00  5+00  5+00,20+00,1,CF:0,CP:0,PP:0,PY:1,XX:0,ZX:0,ZZ:0,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,PABS|20150630|20150701|SB14|TYO|2010|0110|0|0;PABS|20150701|20150702|SB14|TYO|2050|0150|0|0;PABS|20150702|20150703|SB14|TYO|2250|0350|0|0;PABS|20150703|20150704|SB14|TYO|2335|0435|0|0;PACT|737;\n";
+
+    MyPairConv a;
+
+    a.loadPairings(ss, true);
+    ASSERT_EQ(1, a.size());
+    const MyPairConv::Pairing& pairing = a.pairingMap.begin()->second[0];
+    ASSERT_EQ("0630 20:10  SB10701 20:50  SB10702 22:50  SB10703 23:35  SB1",
+	      pairing.getOldId());
+    
+    ASSERT_EQ(5, 
+	      std::count(pairing.eventLines.begin(), pairing.eventLines.end(), ';'));
+
   }
   /*
   {

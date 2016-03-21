@@ -105,7 +105,10 @@ class MyPairConv{
 
   public:
     std::vector<MyPairConv::Event> events;
+    std::string eventLines;
     std::string origLine;
+    char intOrDom;
+
     Pairing(const std::string& _id, 
 	    const std::string& _aId,
 	    //we expect crcString to be 12 non-negative integers with 12 | 
@@ -113,6 +116,7 @@ class MyPairConv{
 	    const std::string& crcString)
       {
 	id = _id;
+	oldId = "";
 	aId = _aId;
 	parseCrcString(crcString);
 	if (id.length() % 5 != 0
@@ -149,11 +153,15 @@ class MyPairConv{
 	}
     }
 
+    void setOldId(const std::string& _oldId)
+    {
+      oldId = _oldId;
+    }
     std::string getOldId() const
       {
-	if (events.size() == 0)
+	if (oldId == "")
 	  {
-	    std::cerr << "The events haven't yet been identified!" << std::endl;
+	    std::cerr << "The old Id has not yet been initialized!" << std::endl;
 	    exit(1);
 	  }
 	return oldId;
@@ -207,6 +215,9 @@ class MyPairConv{
   typedef std::map< std::string, std::vector<Pairing> > SSMap; 
   int duplicate;
   int _selfPrefix;
+  static const int maxSize = 512;
+  //todo: improve this
+  char charArr[maxSize];
 
 
  public:
@@ -242,7 +253,7 @@ class MyPairConv{
   //void parseOrigCsvFile(std::istream& infile);
   void loadCrewCodeLegKey(std::istream& infile);
 
-  void loadPairings(std::istream& in);
+  void loadPairings(std::istream& in, bool identifiedPairings = false);
   void loadCrmEvents(std::istream& in);
 
   void  checkConsecutiveEvents();
@@ -254,6 +265,12 @@ class MyPairConv{
   void  identifyPairingEvents();
   
   void  writeIdentifiedPairings(std::ostream& pairingOut);
+
+  void identifyPairingsFromRefScen(const std::string& pairingsFile,
+				   const std::string& refScenFile,
+				   const std::string& identifiedPairingsFile);
+
+  // Second phase: read identified pairings and find them on rosters  
 
   void findPairings(const MyPairConv::Event& evt,
 		    std::vector<Pairing>& foundPairings);
@@ -271,9 +288,15 @@ class MyPairConv{
   int getRankAndMove(std::vector<Event>::iterator& evtIt, 
 		     int length);
 
+
   void pairingsInPreassignment();
 
   void deleteUnWantedPairings();
+  static std::string getSbyCode(const std::string& anaSbyCode, const char intOrDom,
+			 const int pairingLength);
+  static std::string pabsString(const Event& event,
+				const std::string& ourEventCode);
+
 
   static std::string rabsString(const std::string& tlc,
 				const Event& event);
@@ -324,6 +347,11 @@ class MyPairConv{
 
   void  writeRosterLines(std::ostream& rosterOut);
   void  writePairings(std::ostream& pairingOut);
+
+  void createRosters(const std::string& identifiedPairingsFile, 
+		     const std::string& preassFile, 
+		     const std::string& preassToImportFile, 
+		     const std::string& pairingsToImportFile);
 
   void run(std::istream& pairings,
 	   std::istream& legs,
