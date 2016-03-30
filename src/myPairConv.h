@@ -26,30 +26,41 @@ class MyPairConv{
     int rank;
     std::string startDt;
     std::string endDt;
+    std::string dayOfOrig;
     
   public:
     std::string depPlace;
     std::string arrPlace;
     std::string eventCode;
-    std::string leg_day_of_orig;
+
 
 
     //this is a little bit of a cheating: why should the event have a tlc
     std::string tlc;
 
     Event(const std::string& _eventId,
-	  const int _rank){
-      setId(_eventId);
-      setRank(_rank);
-    }
-    Event()
+	  const int _rank)
       {
-	eventId = "";
-	type = 'F';
-	setRank(-1);
+	setId(_eventId);
+	setRank(_rank);
       }
+    Event(const std::string& _eventId)
+      {
+	setId(_eventId);
+      }
+    /* Event() */
+    /*   { */
+    /* 	eventId = ""; */
+    /* 	type = 'F'; */
+    /* 	setRank(-1); */
+    /*   } */
     void setId(const std::string& _eventId)
     {
+      if (_eventId.length() != 5)
+	{
+	  std::cerr << "Event id length not ok (" << _eventId << ")" << std::endl;
+	  exit(1);
+	}
       eventId = _eventId;
       //absence
       if ((eventId.substr(1)).find_first_not_of(" 0123456789") == std::string::npos)
@@ -64,11 +75,21 @@ class MyPairConv{
 	  type = 'A';
 	}
     }
+    void setDayOfOrig(const std::string& _dayOfOrig)
+    {
+      
+      dayOfOrig = _dayOfOrig;
+    }
     const std::string& getId() const {return eventId;}
 
+    const std::string getFullId() const {return dayOfOrig + eventId;}
     const std::string getIdWithDt() const {return startDt + eventId;}
-    const std::string getOldId() const {return getIdWithDt();}
+    const std::string getOldId() const {return getFullId();}
     char getType() const{ return type;} 
+    bool isOff() const 
+    {
+      return (getId().substr(1, 3) == "OFF");
+    }
     void setRank(const int _rank)
     {
       rank = _rank;
@@ -94,6 +115,7 @@ class MyPairConv{
       endDt = _endDt;
     }      
     const std::string& getStartDt() const {return startDt;}
+    const std::string& getDayOfOrig() const {return dayOfOrig;}
     const std::string& getEndDt() const {return endDt;}
   }; 
 
@@ -119,12 +141,21 @@ class MyPairConv{
 	oldId = "";
 	aId = _aId;
 	parseCrcString(crcString);
-	if (id.length() % 5 != 0
-	    || id.length() < 15)
+	if (id.length() % 5 != 3
+	    || id.length() < 13)
 	  {
 	    std::cerr << "Pairing id length not ok." << std::endl;
 	    exit(1);
 	  }
+	
+	int i = 0;
+	while (8 + 5 * i  < id.length())
+	  {
+	    Event evt(id.substr(8 + 5 * i , 5));
+	    events.push_back(evt);
+	    ++i;
+	  }
+	
       }
 
     void addEvents(std::vector<MyPairConv::Event>::iterator evtIt);
@@ -170,7 +201,7 @@ class MyPairConv{
     const std::vector<int>& getCrc() const {return crc;}
     int length() const
     {
-      return id.length() / 5 - 2;
+      return events.size() ;
     }
     std::string getId() const { return id;}
     std::string getAId() const { return aId;}
@@ -178,7 +209,7 @@ class MyPairConv{
     { 
       for (int i = 0; i < length(); ++i)
 	{
-	  if (id[10 + 2 * i] != 'D')
+	  if (events[i].getType() != 'F') 
 	    return false;
 	}
       return true;
@@ -218,6 +249,7 @@ class MyPairConv{
   static const int maxSize = 512;
   //todo: improve this
   char charArr[maxSize];
+  static const std::string zeroCrc;
 
 
  public:
@@ -260,6 +292,13 @@ class MyPairConv{
   static std::string  concatEventIds(std::vector<Event>::iterator evtIt,
 				     const std::vector<Event>::iterator& evtEndIt,
 				     int length);
+  static void  concatEventIds(std::vector<Event>::iterator evtIt,
+			      const std::vector<Event>::iterator& evtEndIt,
+			      int length,
+			      std::string& pairingNewId, 
+			      std::string& eventSeqFullIds, 
+			      std::string& eventLines);
+    
   bool whoTakesThisPairing(  Pairing& pairing);
   void  identifyPairingEvents();
   
@@ -327,7 +366,9 @@ class MyPairConv{
     return pairingMap[key].size();
   }
 
-  
+  bool isPrefixInMap(const std::map<std::string, std::string> pairingMap, 
+		     const std::string& searchFor, std::string& valueInMap);
+
   bool isPrefixInMap(std::string key, bool realPrefix = false);
 
   int getLoadFailures()
@@ -352,6 +393,23 @@ class MyPairConv{
 		     const std::string& preassToImportFile, 
 		     const std::string& pairingsToImportFile);
 
+  //ultimate hack
+
+  static std::string  convertNewId(const std::string& pNewId, 
+				   const std::string& pAId);
+  void convertPairingNewIds(std::istream& infile, std::ostream& output);
+
+  void getPairingMaxLength(const std::string& pairingsFile);
+  
+  std::map< std::string, std::string> firstLegNewIds;  
+
+  std::map< std::string, std::string> flightsOnDays;
+  std::map< std::string, std::string> legKeys;
+  void loadCrewCodeLegKeyForLegkeys(std::istream& infile);
+  std::map<std::string, std::string> pairingPatterns;
+  void createMissingPairings(const std::string& pairingsFile,
+			     const std::string& refScenFile,
+			     const std::string& everyDayPairingsFile);
 
 }; 
 

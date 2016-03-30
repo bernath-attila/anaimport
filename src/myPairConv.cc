@@ -1,16 +1,20 @@
 #include<sstream>
 #include<fstream>
 #include <iostream>
+#include <iomanip>
 #include<cstdlib>
 #include "myPairConv.h"
 
 using namespace std;
 
 
+//returns YYYYMMDD from MMDD hh:mm 
 std::string getDatePart(const std::string& dateTimeShort)
 {
   return "2015" + dateTimeShort.substr(0,4);
 }
+
+//returns hhmm from MMDD hh:mm 
 std::string getTimePart(const std::string& dateTimeShort)
 {
   return dateTimeShort.substr(5,2) + dateTimeShort.substr(8,2);
@@ -19,6 +23,7 @@ std::string getTimePart(const std::string& dateTimeShort)
 void MyPairConv::loadPairings(istream& infile, bool identifiedPairings){
   duplicate = 0;
   pairingMap.clear();
+  firstLegNewIds.clear();
   //const int maxSize = 512;
   
   string expectedHeader = "#pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
@@ -62,6 +67,12 @@ void MyPairConv::loadPairings(istream& infile, bool identifiedPairings){
 	cerr << "Only deadheads: "<< a.getId() << endl;
 	exit(1);
       }
+
+      string firstLegNewId = csvValues["pairing_newid"].substr(8,5);
+      
+      firstLegNewIds[firstLegNewId] = firstLegNewId;
+ 
+
       if(pairingMap.count(pId)){
 	cerr << "Error: Key non-unique " << pId <<endl;
 	duplicate++;
@@ -76,22 +87,9 @@ void MyPairConv::loadPairings(istream& infile, bool identifiedPairings){
 	}
     }
 
-  /*  while (in.getline(pId,maxSize,',') 
-	 && in.getline(pAId,maxSize,',')
-	 && in.getline(crcString,maxSize)){
-    Pairing a(pId,pAId,crcString);
-    if(pairingMap.count(pId)){
-      cerr << "Error: Key non-unique " << pId <<endl;
-      duplicate++;
-      //exit (EXIT_FAILURE);
-    }
-    if (a.onlyDeadHeads()){
-      cerr << "Only deadheads: "<< a.getId() << endl;
-      exit(1);
-    }
-    pairingMap[pId].push_back(a);
-    }*/
 }
+
+
 
 bool MyPairConv::nextField(stringstream& is,
 			   string& fieldValue,
@@ -166,40 +164,9 @@ void MyPairConv::parseCsvHeader(std::string& headerLine,
     
 }
 
-/* This is not finished
-void MyPairConv::parseOrigCsvFile(istream& infile)
-{
-  crmEvents.clear();
-  std::string line;
-  
-
-  //check header
-  string expectedHeader = "ORG_EMP_NUM,ORG_AIRLINE_CD,JOB_DT,JOB_NO,CARRIER,JOB_CD,DEP_PLACE,ARR_PLACE,DUTY_CD,DEP_TIME,ARR_TIME,FLT_BASE_DT,FLT_AIRLINE_CD,FLT_NUM_OR_JOB_CD,SCH_DEP_AIRP_CD,SCH_ARR_AIRP_CD,OPE_ODR,RANK";
-  if (!std::getline(infile, line)
-      || line != expectedHeader)
-    {
-      cerr << "Original csv header not as expected: " << endl;
-      cerr << "Header: " << endl;
-      cerr << line << endl;
-      cerr << "Expected: " << endl;
-      cerr << expectedHeader << endl;
-      exit(1);
-    }
-  parseCsvHeader(line);
-  
-  string lTlc = "";
-  while (std::getline(infile, line))
-    {
-      parseCsvLine(line);
-
-      //todo something
-      //CrmEvents::Event evt;
-      string tlc = csvValues["ORG_EMP_NUM"];
-    }
-}
-*/
 void MyPairConv::loadCrewCodeLegKey(istream& infile)
 {
+  cout << "Loading roster data." << endl;
   crmEvents.clear();
   std::string line;
   
@@ -225,16 +192,16 @@ void MyPairConv::loadCrewCodeLegKey(istream& infile)
       parseCsvLine(line);
       
       //todo something
-      Event evt;
+      Event evt(csvValues["event_newid"]);
       string curTlc = csvValues["emp_num"];
-      evt.setId(csvValues["event_newid"]);
+      
       evt.setRank(atoi(csvValues["rank"].c_str()));
       evt.setStartDt(csvValues["event_start_dt"]);
       evt.setEndDt(csvValues["event_end_dt"]);
       evt.depPlace = csvValues["DEP_PLACE"];
       evt.arrPlace = csvValues["ARR_PLACE"];
       evt.eventCode = csvValues["JOB_CD"];
-      evt.leg_day_of_orig = csvValues["leg_day_of_orig"];
+      evt.setDayOfOrig( csvValues["leg_day_of_orig"]);
       
       //we cheat
       evt.tlc = curTlc;
@@ -265,22 +232,56 @@ void MyPairConv::loadCrewCodeLegKey(istream& infile)
   if (lTlc != ""){
     crmEvents.push_back(a);
   }
+
+  cout << "Loading roster data: done." << endl;
+
 }
+
 
 
 std::string  MyPairConv::concatEventIds(std::vector<Event>::iterator evtIt,
 					const std::vector<Event>::iterator& evtEndIt,
 					int length)
 {
-  string result = evtIt->getStartDt();
+  string result = evtIt->getDayOfOrig();
   int i = 0;
-  while (evtIt != evtEndIt && i < length)
+  while (evtIt != evtEndIt && !evtIt->isOff() && i < length)
     {
       result += evtIt->getId();
       ++evtIt;
       ++i;
     }
   return result;
+
+}
+void  MyPairConv::concatEventIds(std::vector<Event>::iterator evtIt,
+				 const std::vector<Event>::iterator& evtEndIt,
+				 int length,
+				 std::string& pairingNewId, 
+				 std::string& eventSeqFullIds, 
+				 std::string& eventLines)
+{
+
+  pairingNewId = evtIt->getDayOfOrig();
+  eventSeqFullIds = "";
+  eventLines = "";
+
+  int i = 0;
+  while (evtIt != evtEndIt && !evtIt->isOff() && i < length)
+    {
+      pairingNewId += evtIt->getId();
+      eventSeqFullIds += evtIt->getDayOfOrig() + evtIt->getId();
+      if (evtIt->getType() == 'L')
+	{
+	  eventLines += plegString(*evtIt) + ";";
+	}
+      if (evtIt->getType() == 'F')
+	{
+	  eventLines += pftrString(*evtIt) + ";";
+	}
+      ++evtIt;
+      ++i;
+    }
 }
 
 //bool isStandby()
@@ -390,39 +391,44 @@ std::string MyPairConv::pabsString(const Event& event,
   return result;  
 }
 
-//We add the events and calculate the old id: we only add legs and SBYs
+//We add the events and calculate the old id
 void MyPairConv::Pairing::addEvents(std::vector<MyPairConv::Event>::iterator evtIt)
 {
-  events.clear();
+  //events.clear();
   oldId = "";
   bool foundLeg = false;
-  for (int i = 0; i < length(); ++i)
+  for (std::vector<MyPairConv::Event>::iterator myEvtIt = events.begin();
+       myEvtIt != events.end() ;++ myEvtIt)
     {
-      oldId += evtIt->getOldId();
-      // we could check that evtIt has not reached the end
-      if (evtIt->getType() != 'A'
-	  || evtIt->getId().substr(2,2) == "SB")
+
+      if (myEvtIt->getId() != evtIt->getId())
 	{
-	  events.push_back(*evtIt);
+	  cerr << "Horr" << endl;
+	  exit(1);
 	}
       
-	if (evtIt->getType() == 'L')
+      oldId += evtIt->getOldId();
+      // we could check that evtIt has not reached the end
+      myEvtIt->setStartDt(evtIt->getStartDt());
+      myEvtIt->setDayOfOrig(evtIt->getDayOfOrig());
+
+      if (evtIt->getType() == 'L')
 	{
 	  foundLeg = true;
 	  eventLines += plegString(*evtIt) + ";";
 	}
-      if (evtIt->getType() == 'F')
-	{
-	  eventLines += pftrString(*evtIt) + ";";
-	}
-      if (evtIt->getType() == 'A'
-	  && evtIt->getId().substr(2,2) == "SB")
-	{
-	  eventLines += pabsString(*evtIt, MyPairConv::getSbyCode(evtIt->getId(),
-								  this->intOrDom,
-								  this->length())) + ";";
-	}
-      
+	if (evtIt->getType() == 'F')
+	  {
+	    eventLines += pftrString(*evtIt) + ";";
+	  }
+	if (evtIt->getType() == 'A'
+	    && evtIt->getId().substr(2,2) == "SB")
+	  {
+	    eventLines += pabsString(*evtIt, MyPairConv::getSbyCode(evtIt->getId(),
+								    this->intOrDom,
+								    this->length())) + ";";
+	  }
+	
       ++evtIt;
     }
   if (!foundLeg)
@@ -447,7 +453,7 @@ bool MyPairConv::whoTakesThisPairing( MyPairConv::Pairing& pairing)
       for (std::vector<Event>::iterator evtIt = it->events.begin();
 	   evtIt != it->events.end(); ++evtIt)
 	{
-	  if (isPrefix(evtIt->getIdWithDt(), pairing.getId()))
+	  if (isPrefix(evtIt->getFullId(), pairing.getId()))
 	    {
 	      if (pairing.getId() == 
 		  concatEventIds(evtIt,it->events.end(),pairing.length()))
@@ -460,7 +466,28 @@ bool MyPairConv::whoTakesThisPairing( MyPairConv::Pairing& pairing)
     }
    return false;
 }
-//0630 22:50   55   50
+
+void MyPairConv::getPairingMaxLength(const std::string& pairingsFile)
+{
+
+
+  ifstream pairingsStream;
+  pairingsStream.open(pairingsFile.c_str());
+  loadPairings(pairingsStream);
+
+  int maxLength = 0;
+  for (SSMap::iterator pIt = pairingMap.begin();
+       pIt != pairingMap.end(); ++ pIt)
+    {
+      Pairing& pairing = pIt->second[0];
+      if (pairing.length() > maxLength)
+	{
+	  maxLength = pairing.length();
+	}
+    }
+  cout << "The maximum length of a pairing is: " << maxLength << endl;
+}
+
 void  MyPairConv::identifyPairingEvents()
 {
   
@@ -549,9 +576,9 @@ void  MyPairConv::checkConsecutiveEvents()
 	{
 	  if (evtIt->getType() != 'A' || (evtIt+1)->getType() != 'A')
 	    {
-	      std::string key = evtIt->getId() + evtIt->getStartDt() 
+	      std::string key = evtIt->getId() + evtIt->getDayOfOrig() 
 		+ (evtIt+1)->getId();
-	      consEvts.consEventIdsWithDt = key + (evtIt+1)->getStartDt();
+	      consEvts.consEventIdsWithDt = key + (evtIt+1)->getDayOfOrig();
 	      
 	      if (!keyPairs.count(key))
 		{
@@ -611,6 +638,35 @@ bool MyPairConv::isPrefix(const string& foo, const string& foobar){
   else{
     return false;
   }
+}
+
+
+//   returns true iff searchFor is the prefix of a key in the map
+bool MyPairConv::isPrefixInMap(const std::map<std::string, std::string> pairingMap, 
+			       const std::string& searchFor, std::string& valueInMap)
+{
+  //map<string,string>
+  map<string,string>::const_iterator it = pairingMap.lower_bound(searchFor);
+  bool result;
+  valueInMap = "";
+
+  if (it == pairingMap.end())
+    {
+      result = false;
+    }
+  else
+    {
+      if (isPrefix(searchFor,it->first))
+	{
+	  result = true;
+	  valueInMap = it->second;
+	} 
+      else
+	{
+	  result = false;
+	}
+    }
+  return result;
 }
 
 // If realPrefix = false then
@@ -859,7 +915,7 @@ std::string  MyPairConv::rftrString(const std::string& tlc,
 {
   //RFTR|046109|N|20150708|NH   53 |HND|0
 
-  string result = "RFTR|" + tlc + "|N|" + event.leg_day_of_orig
+  string result = "RFTR|" + tlc + "|N|" + event.getDayOfOrig()
     + "|NH " + event.getId().substr(1) + " |" + event.depPlace + "|0";
   return result;
 }
@@ -868,7 +924,7 @@ std::string  MyPairConv::plegString(const  MyPairConv::Event& event)
 {
   //PLEG|20150705|NH  767 |ITM|0
 
-  string result = "PLEG|" + event.leg_day_of_orig
+  string result = "PLEG|" + event.getDayOfOrig()
     + "|NH " + event.getId().substr(1) + " |" + event.depPlace + "|0";
   return result;
 }
@@ -877,7 +933,7 @@ std::string  MyPairConv::pftrString(const  MyPairConv::Event& event)
 {
   //PLEG|20150705|NH  767 |ITM|0
 
-  string result = "PFTR|" + event.leg_day_of_orig
+  string result = "PFTR|" + event.getDayOfOrig()
     + "|NH " + event.getId().substr(1) + " |" + event.depPlace + "|0";
   return result;
 }
@@ -1128,3 +1184,180 @@ void MyPairConv::createRosters(const std::string& identifiedPairingsFile,
     cout << "Pairings written to: " << pairingsToImportFile << endl;
 }
 
+
+const std::string MyPairConv::zeroCrc = "0|0|0|0|0|0|0|0|0|0|0|0";
+
+void MyPairConv::loadCrewCodeLegKeyForLegkeys(istream& infile)
+{
+  loadCrewCodeLegKey(infile);
+  //once I counted using gatMaxPairLength.cc that max length of a pairing is 14
+  const int pairingMaxLength = 15;
+    
+  legKeys.clear();
+  flightsOnDays.clear();
+
+   for (vector<CrmEvents>::iterator it = crmEvents.begin();
+	it != crmEvents.end();
+	++it)
+    {
+      //cout << "Crm: " << it->getTlc() << endl;
+      for (std::vector<Event>::iterator evtIt = it->events.begin();
+	   evtIt != it->events.end(); ++evtIt)
+	{
+	  //cout << "  Event: " << evtIt->getId() << endl;
+	  
+	  if (firstLegNewIds.count(evtIt->getId()))
+	    {
+	      
+	      string legKey = "";
+	      string legFullIds = "";
+	      string eventLines = "";
+	      concatEventIds(evtIt,it->events.end(), pairingMaxLength,
+			     legKey, legFullIds, eventLines);
+	      
+	      
+	      legKeys[legKey] = legFullIds + ";" + eventLines;
+		//std::pair<std::string, std::string>(legFullIds, eventLines);
+	      string firstFlightOnDate = evtIt->getDayOfOrig() + evtIt->getId();
+	      flightsOnDays[firstFlightOnDate] = firstFlightOnDate;
+	      // cout << "Legkey: " << legKey << endl;
+	    }
+	}
+    }
+}
+
+
+void MyPairConv::createMissingPairings(const std::string& pairingsFile,
+				       const std::string& refScenFile,
+				       const std::string& missingPairingsFile)
+{
+
+  ifstream pairingsStream;
+  pairingsStream.open(pairingsFile.c_str());
+  loadPairings(pairingsStream);
+
+  ifstream refScenStream;
+  refScenStream.open(refScenFile.c_str());
+  loadCrewCodeLegKeyForLegkeys(refScenStream);	     
+
+  cout << "legKeys.size() = " << legKeys.size() << endl;
+
+  pairingPatterns.clear();
+  //const int maxSize = 512;
+
+  int counter = 0;
+
+  SSMap missingPairingMap;
+
+  int missingPairingCounter = 0;
+
+  for (SSMap::iterator pIt = pairingMap.begin();
+       pIt != pairingMap.end(); ++ pIt)
+    {
+      ++counter;
+      if (counter % 500 == 0)
+	{
+	  cout << "Pairing counter: " << counter << endl;
+	}
+      Pairing& pairing = pIt->second[0];
+
+      string pairingPattern = pairing.getId().substr(8);
+      
+      if (!pairingPatterns.count(pairingPattern))
+	{
+	  pairingPatterns[pairingPattern] = pairingPattern;
+	  //new pairing pattern
+	  //cout << pairingPattern << endl;
+	  for (int i = 1; i <= 31; ++i)
+	    {
+	      stringstream ss;
+	      ss << setw(2) << setfill('0') << i;
+	      string dayOfMonth = ss.str();
+	      string dayOfOrig = "201507" + dayOfMonth;
+	      string firstLeg = dayOfOrig + pairingPattern.substr(0,5);
+	      string pairingBrandNewId = dayOfOrig + pairingPattern;
+	      string valueInMap;
+	      if (flightsOnDays.count(firstLeg))
+		{
+		  if (isPrefixInMap(legKeys, pairingBrandNewId, valueInMap)
+		      && !pairingMap.count(pairingBrandNewId))
+
+		    {
+		      //We will number the missing pairings starting here
+		      stringstream ss2;
+		      ss2 << (8000 + missingPairingCounter);
+		      string pAId = ss2.str() + dayOfMonth;
+		      missingPairingCounter++;
+		      Pairing missingPairing(pairingBrandNewId, 
+					     pAId,
+					     MyPairConv::zeroCrc);
+		      missingPairing.origLine = pairing.origLine;
+
+		      missingPairingMap[pairingBrandNewId].push_back(missingPairing);
+
+		  
+		    }
+		}
+	    }
+	  
+	}
+      
+    }
+
+  cout << "Created " << missingPairingCounter << " new pairings." << endl;
+
+  /*
+  ofstream missingPairingsStream;
+  missingPairingsStream.open(missingPairingsFile.c_str());
+
+  
+  string pairingHeader = "#pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
+
+  missingPairingsStream << pairingHeader << endl;
+
+  for (SSMap::iterator pIt = missingPairingMap.begin();
+       pIt != missingPairingMap.end(); ++ pIt)
+    {
+      Pairing& pairing = pIt->second[0];
+      
+    }
+  */
+}
+
+std::string  MyPairConv::convertNewId(const std::string& pNewId, 
+				      const std::string& pAId)
+{
+   return "201507" + pAId.substr(pAId.length() - 2) + pNewId.substr(10);
+}
+
+void MyPairConv::convertPairingNewIds(istream& infile, ostream& output)
+{
+  
+  string expectedHeader = "#pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
+
+  string line;
+  //check header
+  if (!std::getline(infile,line)
+      || line != expectedHeader)
+    {
+      
+      cerr << "Pairing file header is not as expected." << endl;
+      cerr << "Header: " << endl;
+      cerr << line << endl;
+      cerr << "Expected header: " << endl;
+      cerr << expectedHeader << endl;
+	exit(1);
+    }
+  
+  output << line << endl;
+  parseCsvHeader(line);
+
+  while (std::getline(infile, line))
+    {
+      parseCsvLine(line);
+      string pNewId = csvValues["pairing_newid"];
+      string pAId = csvValues["pairing_aid"];
+      output << convertNewId(pNewId, pAId) << "," << line.substr(line.find(",") + 1) << endl;
+    }
+
+}

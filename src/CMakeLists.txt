@@ -29,3 +29,13 @@ target_link_libraries(convertPairings myPairConv)
 
 add_executable(checkConsecutiveEvents checkConsecutiveEvents.cc)
 target_link_libraries(checkConsecutiveEvents myPairConv)
+
+
+add_executable(createPairingsForEachDay createPairingsForEachDay.cc)
+target_link_libraries(createPairingsForEachDay myPairConv)
+
+add_executable(getMaxPairLength getMaxPairLength.cc)
+target_link_libraries(getMaxPairLength myPairConv)
+
+add_executable(changePairingContract changePairingContract.cc)
+target_link_libraries(changePairingContract myPairConv)
