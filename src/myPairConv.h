@@ -366,7 +366,7 @@ class MyPairConv{
     return pairingMap[key].size();
   }
 
-  bool isPrefixInMap(const std::map<std::string, std::string> pairingMap, 
+  static bool isPrefixInMap(const std::map<std::string, std::string>& pairingMap, 
 		     const std::string& searchFor, std::string& valueInMap);
 
   bool isPrefixInMap(std::string key, bool realPrefix = false);

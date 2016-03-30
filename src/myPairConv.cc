@@ -642,7 +642,7 @@ bool MyPairConv::isPrefix(const string& foo, const string& foobar){
 
 
 //   returns true iff searchFor is the prefix of a key in the map
-bool MyPairConv::isPrefixInMap(const std::map<std::string, std::string> pairingMap, 
+bool MyPairConv::isPrefixInMap(const std::map<std::string, std::string>& pairingMap, 
 			       const std::string& searchFor, std::string& valueInMap)
 {
   //map<string,string>
@@ -1220,7 +1220,7 @@ void MyPairConv::loadCrewCodeLegKeyForLegkeys(istream& infile)
 		//std::pair<std::string, std::string>(legFullIds, eventLines);
 	      string firstFlightOnDate = evtIt->getDayOfOrig() + evtIt->getId();
 	      flightsOnDays[firstFlightOnDate] = firstFlightOnDate;
-	      // cout << "Legkey: " << legKey << endl;
+	      //cout << "Legkey: " << legKey << endl;
 	    }
 	}
     }
@@ -1241,19 +1241,21 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
   loadCrewCodeLegKeyForLegkeys(refScenStream);	     
 
   cout << "legKeys.size() = " << legKeys.size() << endl;
+  cout << "pairingMap.size() = " << pairingMap.size() << endl;
 
   pairingPatterns.clear();
   //const int maxSize = 512;
 
   int counter = 0;
 
-  SSMap missingPairingMap;
+  vector<Pairing> missingPairings;
 
   int missingPairingCounter = 0;
 
   for (SSMap::iterator pIt = pairingMap.begin();
        pIt != pairingMap.end(); ++ pIt)
     {
+
       ++counter;
       if (counter % 500 == 0)
 	{
@@ -1261,13 +1263,16 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
 	}
       Pairing& pairing = pIt->second[0];
 
+      //cout << "Pairing: " << pairing.getId() << endl;
       string pairingPattern = pairing.getId().substr(8);
+      //cout << "Pairing: " << pairing.getId() << endl;
       
       if (!pairingPatterns.count(pairingPattern))
 	{
 	  pairingPatterns[pairingPattern] = pairingPattern;
 	  //new pairing pattern
 	  //cout << pairingPattern << endl;
+	  
 	  for (int i = 1; i <= 31; ++i)
 	    {
 	      stringstream ss;
@@ -1279,34 +1284,36 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
 	      string valueInMap;
 	      if (flightsOnDays.count(firstLeg))
 		{
-		  if (isPrefixInMap(legKeys, pairingBrandNewId, valueInMap)
-		      && !pairingMap.count(pairingBrandNewId))
-
+		  
+		  if ( !pairingMap.count(pairingBrandNewId)
+		       && isPrefixInMap(legKeys, pairingBrandNewId, valueInMap))
+		    
 		    {
+
 		      //We will number the missing pairings starting here
 		      stringstream ss2;
 		      ss2 << (8000 + missingPairingCounter);
 		      string pAId = ss2.str() + dayOfMonth;
 		      missingPairingCounter++;
+		      
 		      Pairing missingPairing(pairingBrandNewId, 
 					     pAId,
 					     MyPairConv::zeroCrc);
 		      missingPairing.origLine = pairing.origLine;
 
-		      missingPairingMap[pairingBrandNewId].push_back(missingPairing);
+		      missingPairings.push_back(missingPairing);
 
 		  
 		    }
 		}
-	    }
-	  
+	    }  
 	}
-      
+          
     }
 
   cout << "Created " << missingPairingCounter << " new pairings." << endl;
 
-  /*
+  
   ofstream missingPairingsStream;
   missingPairingsStream.open(missingPairingsFile.c_str());
 
@@ -1315,13 +1322,25 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
 
   missingPairingsStream << pairingHeader << endl;
 
-  for (SSMap::iterator pIt = missingPairingMap.begin();
-       pIt != missingPairingMap.end(); ++ pIt)
+  for (vector<Pairing>::iterator pIt = missingPairings.begin();
+       pIt != missingPairings.end(); ++ pIt)
     {
-      Pairing& pairing = pIt->second[0];
+      Pairing& pairing = *pIt;
+      string origLineEnd = pairing.origLine;
+     
+      //Cut off first 3 fields
+      origLineEnd = origLineEnd.substr(origLineEnd.find(",") + 1);
+      origLineEnd = origLineEnd.substr(origLineEnd.find(",") + 1);
+      origLineEnd = origLineEnd.substr(origLineEnd.find(",") + 1);
       
+      missingPairingsStream 
+	<< pairing.getId() << ","
+	<< pairing.getAId() << ","
+	<< zeroCrc << ","
+	<< origLineEnd << endl;
+     
     }
-  */
+  
 }
 
 std::string  MyPairConv::convertNewId(const std::string& pNewId, 
