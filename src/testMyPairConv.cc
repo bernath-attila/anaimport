@@ -84,7 +84,7 @@ TEST (testWhoTakesThisPairing, testWhoTakesThisPairing1)
 
 
     a.generateEventSequenceKeys();
-    ASSERT_EQ(1, a.legKeys.size());
+    ASSERT_EQ(1, a.legIdSeqsForPairings.size());
     MyPairConv::Pairing& pairing = a.pairingMap["20150701    2 IVL1    1"][0];
     //("20150701    2 IVL1    1",
     //			   "27602","0|0|0|0|0|0|0|0|0|1|2|0");
@@ -93,6 +93,7 @@ TEST (testWhoTakesThisPairing, testWhoTakesThisPairing1)
 
     ASSERT_EQ(3, pairing.events.size());
     ASSERT_EQ("20150701    220150703 IVL120150704    1", pairing.getOldId());
+    //ASSERT_EQ("20150701    2         IVL120150704    1", pairing.getOldId());
 
     
   }
@@ -119,9 +120,9 @@ TEST (testWhoTakesThisPairing, testWhoTakesThisPairing1)
 
 
     a.generateEventSequenceKeys();
-    ASSERT_EQ(1, a.legKeys.size());
+    ASSERT_EQ(1, a.legIdSeqsForPairings.size());
 
-    ASSERT_EQ(1, a.legKeys.count("20150703  SB1"));
+    ASSERT_EQ(1, a.legIdSeqsForPairings.count("20150703  SB1"));
     
 
     MyPairConv::Pairing& pairing = a.pairingMap["20150703  SB1"][0];
@@ -268,10 +269,6 @@ TEST (testRprgString, testRprgString1)
   ASSERT_EQ("RPRG|011|N|012|1|N|N", MyPairConv::rprgString("011","012",1));
 }
 
-TEST (testConvertNewId, testConvertNewId1)
-{
-  ASSERT_EQ("20150705D  23", MyPairConv::convertNewId("0705 02:40D  23","105"));
-}
 
 TEST (testRftrString, testRftrString1)
 {

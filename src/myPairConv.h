@@ -288,14 +288,6 @@ class MyPairConv{
   bool nextField(std::stringstream& is,
 			     std::string& fieldValue,
 			     const char separator = ',');
-  static void appendSep(std::string& line,
-			const char separator)
-  {
-    if (line[line.length()-1] != separator)
-      {
-	line += separator;
-      }
-  }
 
   void parseCsvHeader(std::string& headerLine,
 			     const char separator = ',');
@@ -317,7 +309,7 @@ class MyPairConv{
 			     int maxLength);
     
   bool whoTakesThisPairing(  Pairing& pairing);
-  void  identifyPairingEvents();
+  void  identifyAllPairingEvents();
   
   void  writeIdentifiedPairings(std::ostream& pairingOut);
 
@@ -422,7 +414,7 @@ class MyPairConv{
 
 
   std::map< std::string, std::string> flightsOnDays;
-  std::map< std::string, std::vector<Event> > legKeys;
+  std::map< std::string, std::vector<Event> > legIdSeqsForPairings;
   void generateEventSequenceKeys();
   std::map<std::string, std::string> pairingPatterns;
   void createMissingPairings(const std::string& pairingsFile,

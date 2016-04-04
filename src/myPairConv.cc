@@ -52,7 +52,7 @@ void MyPairConv::loadPairings(istream& infile, bool identifiedPairings){
     {
       parseCsvLine(line);
       string pId = csvValues["pairing_newid"];
-      string pAId = csvValues["pairing_aid"];
+      string pAId = csvValues["pairing_aid"].substr(0,csvValues["pairing_aid"].length()-2);
       string crcString = csvValues["crc"];
       Pairing a(pId,pAId,crcString);
       a.origLine = line;
@@ -209,8 +209,14 @@ void MyPairConv::loadCrewCodeLegKey(istream& infile)
       evt.depPlace = csvValues["DEP_PLACE"];
       evt.arrPlace = csvValues["ARR_PLACE"];
       evt.eventCode = csvValues["JOB_CD"];
-      evt.setDayOfOrig( csvValues["JOB_DT"]);
-      
+      if (evt.getType() == 'A')
+	{
+	  evt.setDayOfOrig(csvValues["jod_dt"]);
+	}
+      else
+	{
+	  evt.setDayOfOrig(csvValues["leg_day_of_orig"]);
+	}
       //we cheat
       evt.tlc = curTlc;
 
@@ -264,7 +270,7 @@ void MyPairConv::generateEventSequenceKeys()
   //once I counted using gatMaxPairLength.cc that max length of a pairing is 14
   const int pairingMaxLength = 15;
     
-  legKeys.clear();
+  legIdSeqsForPairings.clear();
   flightsOnDays.clear();
 
    for (vector<CrmEvents>::iterator it = crmEvents.begin();
@@ -284,7 +290,7 @@ void MyPairConv::generateEventSequenceKeys()
 	      //legKey, legFullIds, eventLines);
 	      
 	      
-	      //legKeys[legKey] = legFullIds + ";" + eventLines;
+	      //legIdSeqsForPairings[legKey] = legFullIds + ";" + eventLines;
 		//std::pair<std::string, std::string>(legFullIds, eventLines);
 	      string firstFlightOnDate = evtIt->getDayOfOrig() + evtIt->getId();
 	      flightsOnDays[firstFlightOnDate] = firstFlightOnDate;
@@ -326,7 +332,7 @@ void  MyPairConv::generateLegKeysEntry(std::vector<Event>::iterator evtIt,
       ++evtIt;
       ++i;
     }
-  legKeys[pairingNewId] = events;
+  legIdSeqsForPairings[pairingNewId] = events;
 }
 
 //bool isStandby()
@@ -523,19 +529,19 @@ bool MyPairConv::whoTakesThisPairing( MyPairConv::Pairing& pairing)
       exit(1);
     }
 
-  if (legKeys.size() == 0)
+  if (legIdSeqsForPairings.size() == 0)
     {
-      cerr << "You probably forgot to load the legKeys (whoTakesThisPairing)" << endl;
+      cerr << "You probably forgot to load the legIdSeqsForPairings (whoTakesThisPairing)" << endl;
       exit(1);
     }
 
   string whichKey;
-  if (  isPrefixInMap(legKeys, pairing.getId(), whichKey) )
+  if (  isPrefixInMap(legIdSeqsForPairings, pairing.getId(), whichKey) )
     {
       
       //string oldId = valueInMap.substr(0, valueInMap.find(";"));
       //string eventLines = valueInMap.substr(valueInMap.find(";") + 1);
-      pairing.specifyEvents(legKeys[whichKey]);
+      pairing.specifyEvents(legIdSeqsForPairings[whichKey]);
       return true;
     }
   else
@@ -566,7 +572,7 @@ void MyPairConv::getPairingMaxLength(const std::string& pairingsFile)
   cout << "The maximum length of a pairing is: " << maxLength << endl;
 }
 
-void  MyPairConv::identifyPairingEvents()
+void  MyPairConv::identifyAllPairingEvents()
 {
   
 
@@ -1215,7 +1221,7 @@ void MyPairConv::identifyPairingsFromRefScen(const std::string& pairingsFile,
   loadCrewCodeLegKey(refScenStream);
   generateEventSequenceKeys();	     
 
-  identifyPairingEvents();
+  identifyAllPairingEvents();
   cout << "Number of wanted pairings: " << wantedPairings
        << endl;
   cout << "Number of unwanted pairings: " << unWantedPairings
@@ -1276,7 +1282,7 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
   loadCrewCodeLegKey(refScenStream);
   generateEventSequenceKeys();	     
 
-  cout << "legKeys.size() = " << legKeys.size() << endl;
+  cout << "legIdSeqsForPairings.size() = " << legIdSeqsForPairings.size() << endl;
   cout << "pairingMap.size() = " << pairingMap.size() << endl;
 
   pairingPatterns.clear();
@@ -1322,14 +1328,14 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
 		{
 		  
 		  if ( !pairingMap.count(pairingBrandNewId)
-		       && isPrefixInMap(legKeys, pairingBrandNewId, whichKey))
+		       && isPrefixInMap(legIdSeqsForPairings, pairingBrandNewId, whichKey))
 		    
 		    {
 
 		      //We will number the missing pairings starting here
 		      stringstream ss2;
 		      ss2 << (8000 + missingPairingCounter);
-		      string pAId = ss2.str() + dayOfMonth;
+		      string pAId = ss2.str();
 		      missingPairingCounter++;
 		      
 		      Pairing missingPairing(pairingBrandNewId, 
@@ -1371,7 +1377,7 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
       
       everyDayPairingsStream 
 	<< pairing.getId() << ","
-	<< pairing.getAId() << ","
+	<< pairing.getAId() << "00" << ","
 	//maybe we should use this:
 	//<< zeroCrc << ","
 	//but we use this instead
@@ -1393,7 +1399,7 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
       
       everyDayPairingsStream 
 	<< pairing.getId() << ","
-	<< pairing.getAId() << ","
+	<< pairing.getAId() << "00" << ","
 	<< zeroCrc << ","
 	<< origLineEnd << endl;
      
@@ -1401,40 +1407,4 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
   
 }
 
-std::string  MyPairConv::convertNewId(const std::string& pNewId, 
-				      const std::string& pAId)
-{
-   return "201507" + pAId.substr(pAId.length() - 2) + pNewId.substr(10);
-}
 
-void MyPairConv::convertPairingNewIds(istream& infile, ostream& output)
-{
-  
-  string expectedHeader = "#pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
-
-  string line;
-  //check header
-  if (!std::getline(infile,line)
-      || line != expectedHeader)
-    {
-      
-      cerr << "Pairing file header is not as expected." << endl;
-      cerr << "Header: " << endl;
-      cerr << line << endl;
-      cerr << "Expected header: " << endl;
-      cerr << expectedHeader << endl;
-	exit(1);
-    }
-  
-  output << line << endl;
-  parseCsvHeader(line);
-
-  while (std::getline(infile, line))
-    {
-      parseCsvLine(line);
-      string pNewId = csvValues["pairing_newid"];
-      string pAId = csvValues["pairing_aid"];
-      output << convertNewId(pNewId, pAId) << "," << line.substr(line.find(",") + 1) << endl;
-    }
-
-}
