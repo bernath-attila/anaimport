@@ -23,13 +23,13 @@ std::string getTimePart(const std::string& dateTimeShort)
 void MyPairConv::loadPairings(istream& infile, bool identifiedPairings){
   duplicate = 0;
   pairingMap.clear();
-  firstLegNewIds.clear();
+  pairingFirstEvtIds.clear();
   //const int maxSize = 512;
   
   string expectedHeader = "#pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
   if (identifiedPairings)
     {
-      expectedHeader = "#pairing_oldid,pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,eventLines";
+      expectedHeader = "#pairing_oldid,pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
     }
   string line;
   //check header
@@ -56,12 +56,13 @@ void MyPairConv::loadPairings(istream& infile, bool identifiedPairings){
       string crcString = csvValues["crc"];
       Pairing a(pId,pAId,crcString);
       a.origLine = line;
+      // we only need the first char
       a.intOrDom = csvValues["I/D"][0];
 
       if (identifiedPairings)
 	{
 	  a.setOldId(csvValues["pairing_oldid"]);
-	  a.eventLines = csvValues["eventLines"];
+	  
 	}
       if (a.onlyDeadHeads()){
 	cerr << "Only deadheads: "<< a.getId() << endl;
@@ -70,7 +71,7 @@ void MyPairConv::loadPairings(istream& infile, bool identifiedPairings){
 
       string firstLegNewId = csvValues["pairing_newid"].substr(8,5);
       
-      firstLegNewIds[firstLegNewId] = firstLegNewId;
+      pairingFirstEvtIds[firstLegNewId] = firstLegNewId;
  
 
       if(pairingMap.count(pId)){
@@ -86,6 +87,13 @@ void MyPairConv::loadPairings(istream& infile, bool identifiedPairings){
 	  pairingMap[pId].push_back(a);
 	}
     }
+
+  int selfPrefixes = selfPrefix();
+  //   returns true iff searchFor is the prefix of a key in the map
+  cout << "Number of key collisions for pairings: " << getLoadFailures()
+       << endl;
+  cout << "Number of key prefixes for pairings: " << selfPrefixes
+       << endl;
 
 }
 
@@ -201,7 +209,7 @@ void MyPairConv::loadCrewCodeLegKey(istream& infile)
       evt.depPlace = csvValues["DEP_PLACE"];
       evt.arrPlace = csvValues["ARR_PLACE"];
       evt.eventCode = csvValues["JOB_CD"];
-      evt.setDayOfOrig( csvValues["leg_day_of_orig"]);
+      evt.setDayOfOrig( csvValues["JOB_DT"]);
       
       //we cheat
       evt.tlc = curTlc;
@@ -237,6 +245,55 @@ void MyPairConv::loadCrewCodeLegKey(istream& infile)
 
 }
 
+void MyPairConv::generateEventSequenceKeys()
+{
+  
+  if (crmEvents.size() == 0)
+    {
+      cerr << "You probably forgot to load the events (generateEventSequenceKeys)" << endl;
+      exit(1);
+    }
+
+  if (pairingMap.size() == 0)
+    {
+      cerr << "You probably forgot to load the pairings (generateEventSequenceKeys)" << endl;
+      exit(1);
+    }
+
+
+  //once I counted using gatMaxPairLength.cc that max length of a pairing is 14
+  const int pairingMaxLength = 15;
+    
+  legKeys.clear();
+  flightsOnDays.clear();
+
+   for (vector<CrmEvents>::iterator it = crmEvents.begin();
+	it != crmEvents.end();
+	++it)
+    {
+      //cout << "Crm: " << it->getTlc() << endl;
+      for (std::vector<Event>::iterator evtIt = it->events.begin();
+	   evtIt != it->events.end(); ++evtIt)
+	{
+	  //cout << "  Event: " << evtIt->getId() << endl;
+	  
+	  if (pairingFirstEvtIds.count(evtIt->getId()))
+	    {
+	      
+	      generateLegKeysEntry(evtIt,it->events.end(), pairingMaxLength);
+	      //legKey, legFullIds, eventLines);
+	      
+	      
+	      //legKeys[legKey] = legFullIds + ";" + eventLines;
+		//std::pair<std::string, std::string>(legFullIds, eventLines);
+	      string firstFlightOnDate = evtIt->getDayOfOrig() + evtIt->getId();
+	      flightsOnDays[firstFlightOnDate] = firstFlightOnDate;
+	      //cout << "Legkey: " << legKey << endl;
+	    }
+	}
+    }
+}
+
 
 
 std::string  MyPairConv::concatEventIds(std::vector<Event>::iterator evtIt,
@@ -254,34 +311,22 @@ std::string  MyPairConv::concatEventIds(std::vector<Event>::iterator evtIt,
   return result;
 
 }
-void  MyPairConv::concatEventIds(std::vector<Event>::iterator evtIt,
-				 const std::vector<Event>::iterator& evtEndIt,
-				 int length,
-				 std::string& pairingNewId, 
-				 std::string& eventSeqFullIds, 
-				 std::string& eventLines)
+void  MyPairConv::generateLegKeysEntry(std::vector<Event>::iterator evtIt,
+				       const std::vector<Event>::iterator& evtEndIt,
+				       int maxLength)
 {
-
-  pairingNewId = evtIt->getDayOfOrig();
-  eventSeqFullIds = "";
-  eventLines = "";
-
+  string pairingNewId = evtIt->getDayOfOrig();
+  vector<Event> events;
   int i = 0;
-  while (evtIt != evtEndIt && !evtIt->isOff() && i < length)
+  while (evtIt != evtEndIt && !evtIt->isOff() && i < maxLength)
     {
       pairingNewId += evtIt->getId();
-      eventSeqFullIds += evtIt->getDayOfOrig() + evtIt->getId();
-      if (evtIt->getType() == 'L')
-	{
-	  eventLines += plegString(*evtIt) + ";";
-	}
-      if (evtIt->getType() == 'F')
-	{
-	  eventLines += pftrString(*evtIt) + ";";
-	}
+      
+      events.push_back(*evtIt);
       ++evtIt;
       ++i;
     }
+  legKeys[pairingNewId] = events;
 }
 
 //bool isStandby()
@@ -391,80 +436,113 @@ std::string MyPairConv::pabsString(const Event& event,
   return result;  
 }
 
-//We add the events and calculate the old id
-void MyPairConv::Pairing::addEvents(std::vector<MyPairConv::Event>::iterator evtIt)
-{
-  //events.clear();
-  oldId = "";
-  bool foundLeg = false;
-  for (std::vector<MyPairConv::Event>::iterator myEvtIt = events.begin();
-       myEvtIt != events.end() ;++ myEvtIt)
-    {
+// //We add the events and calculate the old id
+// void MyPairConv::Pairing::addEvents(std::vector<MyPairConv::Event>::iterator evtIt)
+// {
+//   //events.clear();
+//   oldId = "";
+//   bool foundLeg = false;
+//   for (std::vector<MyPairConv::Event>::iterator myEvtIt = events.begin();
+//        myEvtIt != events.end() ;++ myEvtIt)
+//     {
 
-      if (myEvtIt->getId() != evtIt->getId())
+//       if (myEvtIt->getId() != evtIt->getId())
+// 	{
+// 	  cerr << "Horr" << endl;
+// 	  exit(1);
+// 	}
+      
+//       oldId += evtIt->getOldId();
+//       // we could check that evtIt has not reached the end
+//       myEvtIt->setStartDt(evtIt->getStartDt());
+//       myEvtIt->setDayOfOrig(evtIt->getDayOfOrig());
+
+//       if (evtIt->getType() == 'L')
+// 	{
+// 	  foundLeg = true;
+// 	  eventLines += plegString(*evtIt) + ";";
+// 	}
+// 	if (evtIt->getType() == 'F')
+// 	  {
+// 	    eventLines += pftrString(*evtIt) + ";";
+// 	  }
+// 	if (evtIt->getType() == 'A'
+// 	    && evtIt->getId().substr(2,2) == "SB")
+// 	  {
+// 	    eventLines += pabsString(*evtIt, MyPairConv::getSbyCode(evtIt->getId(),
+// 								    this->intOrDom,
+// 								    this->length())) + ";";
+// 	  }
+	
+//       ++evtIt;
+//     }
+//   if (!foundLeg)
+//     {
+//       eventLines += "PACT|737;";
+      
+//     }
+
+// }
+
+//We add the events and calculate the old id
+void MyPairConv::Pairing::specifyEvents(const std::vector<Event>& eventSeqInRoster)
+{
+  //int pairingLength = length();
+  //length() is counted from events vector
+
+  //we make a copy just to check for errors
+  vector<Event> eventsCopy = events;
+  events.clear();
+  vector<Event>::const_iterator evtItFromRoster = eventSeqInRoster.begin();
+  oldId = "";
+
+  for (vector<Event>::iterator evtCopyIt = eventsCopy.begin();
+       evtCopyIt != eventsCopy.end();++evtCopyIt)
+    {
+      if (evtCopyIt->getId() != evtItFromRoster->getId())
 	{
-	  cerr << "Horr" << endl;
+	  cerr  << "Horr "<< endl;
 	  exit(1);
 	}
-      
-      oldId += evtIt->getOldId();
-      // we could check that evtIt has not reached the end
-      myEvtIt->setStartDt(evtIt->getStartDt());
-      myEvtIt->setDayOfOrig(evtIt->getDayOfOrig());
 
-      if (evtIt->getType() == 'L')
-	{
-	  foundLeg = true;
-	  eventLines += plegString(*evtIt) + ";";
-	}
-	if (evtIt->getType() == 'F')
-	  {
-	    eventLines += pftrString(*evtIt) + ";";
-	  }
-	if (evtIt->getType() == 'A'
-	    && evtIt->getId().substr(2,2) == "SB")
-	  {
-	    eventLines += pabsString(*evtIt, MyPairConv::getSbyCode(evtIt->getId(),
-								    this->intOrDom,
-								    this->length())) + ";";
-	  }
-	
-      ++evtIt;
-    }
-  if (!foundLeg)
-    {
-      eventLines += "PACT|737;";
-      
+      oldId += evtItFromRoster->getDayOfOrig() + evtItFromRoster->getId();
+
+      events.push_back(*evtItFromRoster);
+
+      evtItFromRoster++;
     }
 
 }
+
 
 bool MyPairConv::whoTakesThisPairing( MyPairConv::Pairing& pairing)
 {
   if (crmEvents.size() == 0)
     {
-      cerr << "You probably forgot to load the events" << endl;
+      cerr << "You probably forgot to load the events (whoTakesThisPairing)" << endl;
       exit(1);
     }
-   for (vector<CrmEvents>::iterator it = crmEvents.begin();
-	it != crmEvents.end();
-	++it)
+
+  if (legKeys.size() == 0)
     {
-      for (std::vector<Event>::iterator evtIt = it->events.begin();
-	   evtIt != it->events.end(); ++evtIt)
-	{
-	  if (isPrefix(evtIt->getFullId(), pairing.getId()))
-	    {
-	      if (pairing.getId() == 
-		  concatEventIds(evtIt,it->events.end(),pairing.length()))
-		{
-		  pairing.addEvents(evtIt);
-		  return true;
-		}
-	    }
-	}
+      cerr << "You probably forgot to load the legKeys (whoTakesThisPairing)" << endl;
+      exit(1);
     }
-   return false;
+
+  string whichKey;
+  if (  isPrefixInMap(legKeys, pairing.getId(), whichKey) )
+    {
+      
+      //string oldId = valueInMap.substr(0, valueInMap.find(";"));
+      //string eventLines = valueInMap.substr(valueInMap.find(";") + 1);
+      pairing.specifyEvents(legKeys[whichKey]);
+      return true;
+    }
+  else
+    {
+
+      return false;
+    }
 }
 
 void MyPairConv::getPairingMaxLength(const std::string& pairingsFile)
@@ -532,7 +610,7 @@ void  MyPairConv::identifyPairingEvents()
 
 void  MyPairConv::writeIdentifiedPairings(std::ostream& pairingOut)
 {
-  string headerLine = "#pairing_oldid,pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,eventLines";
+  string headerLine = "#pairing_oldid,pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
   pairingOut  << headerLine << endl;
 
   for (SSMap::iterator pIt = pairingMap.begin();
@@ -540,7 +618,7 @@ void  MyPairConv::writeIdentifiedPairings(std::ostream& pairingOut)
     {
       Pairing& pairing = pIt->second[0];
       pairingOut  << pairing.getOldId() << "," <<
-	pairing.origLine  << "," << pairing.eventLines;
+	pairing.origLine ;
       pairingOut  << endl;
       
     }
@@ -642,14 +720,12 @@ bool MyPairConv::isPrefix(const string& foo, const string& foobar){
 
 
 //   returns true iff searchFor is the prefix of a key in the map
-bool MyPairConv::isPrefixInMap(const std::map<std::string, std::string>& pairingMap, 
-			       const std::string& searchFor, std::string& valueInMap)
+bool MyPairConv::isPrefixInMap(const std::map<std::string, std::vector<Event> >& pairingMap, 
+			       const std::string& searchFor, std::string& whichKey)
 {
   //map<string,string>
-  map<string,string>::const_iterator it = pairingMap.lower_bound(searchFor);
+  map< string,std::vector<Event> >::const_iterator it = pairingMap.lower_bound(searchFor);
   bool result;
-  valueInMap = "";
-
   if (it == pairingMap.end())
     {
       result = false;
@@ -659,7 +735,7 @@ bool MyPairConv::isPrefixInMap(const std::map<std::string, std::string>& pairing
       if (isPrefix(searchFor,it->first))
 	{
 	  result = true;
-	  valueInMap = it->second;
+	  whichKey = it->first;
 	} 
       else
 	{
@@ -953,9 +1029,10 @@ void MyPairConv::deleteUnWantedPairings()
 	    exit(1);
 	  }
 	Pairing& pairing = pIt->second[0];
-	if (pairing.events.size() > 0)
+	//cout << "Pairing.oldId: " << pairing.getOldId() << endl;
+	if (pairing.getOldId() != "")
 	  {
-	    pairingMapWanted.insert(SSMap::value_type(pairing.getOldId(), pIt->second));
+	    pairingMapWanted.insert(SSMap::value_type(pairing.getId(), pIt->second));
 	  }
       }    
     pairingMap = pairingMapWanted;
@@ -995,12 +1072,8 @@ void MyPairConv::pairingsInPreassignment()
 	      if (evtIt->getId() != " IVL1")
 		{
 		  crmIt->rosterLines.push_back(rabsString(crmIt->getTlc(), *evtIt));
-		  assignedEvents++;
 		}
-	      else
-		{
-		  unAssignedEvents++;
-		}
+	      assignedEvents++;
 	      ++evtIt;
 	    }
 	  else
@@ -1044,8 +1117,8 @@ void MyPairConv::pairingsInPreassignment()
 	      else
 		{
 		  noPairingFound ++;
-		  //cerr << "No pairing found for crm " << crmIt->getTlc() << ", event "
-		  //   << evtIt->getOldId() << endl;
+		  cerr << "No pairing found for crm " << crmIt->getTlc() << ", event "
+		     << evtIt->getOldId() << endl;
 		  unAssignedEvents++;
 		  evtIt++;
 		  //unAssignedEvents += crmIt->events.end() - evtIt;
@@ -1093,22 +1166,37 @@ void  MyPairConv::writePairings(std::ostream& pairingOut)
     {
       Pairing& pairing = pIt->second[0];
       pairingOut  << pprgString(pairing) << endl;
-      std::string s = pairing.eventLines;
-      std::replace( s.begin(), s.end(), ';', '\n');
-      pairingOut  << s;
 
-      // for (vector<Event>::iterator evtIt = pairing.events.begin();
-      // 	   evtIt != pairing.events.end();++evtIt)
-      // 	{
-      // 	  if (evtIt->getType() == 'L')
-      // 	    {
-      // 	      pairingOut  << plegString(*evtIt) << endl;
-      // 	    }
-      // 	  else
-      // 	    {
-      // 	      pairingOut  << pftrString(*evtIt) << endl;
-      // 	    }
-      // 	}
+      bool foundLeg = false;
+      for (vector<Event>::iterator evtIt = pairing.events.begin();
+      	   evtIt != pairing.events.end();++evtIt)
+      	{
+	  if (evtIt->getType() == 'L')
+	    {
+	      foundLeg = true;
+	      pairingOut  << plegString(*evtIt) << endl;
+	    }
+	  if (evtIt->getType() == 'F')
+	    {
+		pairingOut  << pftrString(*evtIt) << endl;
+	    }
+	  if (evtIt->getType() == 'A'
+	      && evtIt->getId().substr(2,2) == "SB")
+	    {
+
+		pairingOut  << pabsString(*evtIt, MyPairConv::getSbyCode(evtIt->getId(),
+								      pairing.intOrDom,
+								      pairing.length()))
+			    << endl;
+	    }
+
+	}
+      if (!foundLeg)
+	{
+	    pairingOut  <<"PACT|737" << endl;
+	  
+	}
+
     }
 
 }
@@ -1118,22 +1206,14 @@ void MyPairConv::identifyPairingsFromRefScen(const std::string& pairingsFile,
 					     const std::string& identifiedPairingsFile)
 {
 
-  ifstream refScenStream;
-  refScenStream.open(refScenFile.c_str());
-  loadCrewCodeLegKey(refScenStream);	     
-
-
   ifstream pairingsStream;
   pairingsStream.open(pairingsFile.c_str());
   loadPairings(pairingsStream);
 
-  int selfPrefixes = selfPrefix();
-  //   returns true iff searchFor is the prefix of a key in the map
-  cout << "Number of key collisions for pairings: " << getLoadFailures()
-       << endl;
-  cout << "Number of key prefixes for pairings: " << selfPrefixes
-       << endl;
-    
+  ifstream refScenStream;
+  refScenStream.open(refScenFile.c_str());
+  loadCrewCodeLegKey(refScenStream);
+  generateEventSequenceKeys();	     
 
   identifyPairingEvents();
   cout << "Number of wanted pairings: " << wantedPairings
@@ -1144,6 +1224,7 @@ void MyPairConv::identifyPairingsFromRefScen(const std::string& pairingsFile,
 
   deleteUnWantedPairings();
 
+  cout << "Number of different pairing keys: " << pairingMap.size() << endl;
 
   ofstream identifiedPairings;
   identifiedPairings.open(identifiedPairingsFile.c_str());
@@ -1187,49 +1268,10 @@ void MyPairConv::createRosters(const std::string& identifiedPairingsFile,
 
 const std::string MyPairConv::zeroCrc = "0|0|0|0|0|0|0|0|0|0|0|0";
 
-void MyPairConv::loadCrewCodeLegKeyForLegkeys(istream& infile)
-{
-  loadCrewCodeLegKey(infile);
-  //once I counted using gatMaxPairLength.cc that max length of a pairing is 14
-  const int pairingMaxLength = 15;
-    
-  legKeys.clear();
-  flightsOnDays.clear();
-
-   for (vector<CrmEvents>::iterator it = crmEvents.begin();
-	it != crmEvents.end();
-	++it)
-    {
-      //cout << "Crm: " << it->getTlc() << endl;
-      for (std::vector<Event>::iterator evtIt = it->events.begin();
-	   evtIt != it->events.end(); ++evtIt)
-	{
-	  //cout << "  Event: " << evtIt->getId() << endl;
-	  
-	  if (firstLegNewIds.count(evtIt->getId()))
-	    {
-	      
-	      string legKey = "";
-	      string legFullIds = "";
-	      string eventLines = "";
-	      concatEventIds(evtIt,it->events.end(), pairingMaxLength,
-			     legKey, legFullIds, eventLines);
-	      
-	      
-	      legKeys[legKey] = legFullIds + ";" + eventLines;
-		//std::pair<std::string, std::string>(legFullIds, eventLines);
-	      string firstFlightOnDate = evtIt->getDayOfOrig() + evtIt->getId();
-	      flightsOnDays[firstFlightOnDate] = firstFlightOnDate;
-	      //cout << "Legkey: " << legKey << endl;
-	    }
-	}
-    }
-}
-
 
 void MyPairConv::createMissingPairings(const std::string& pairingsFile,
 				       const std::string& refScenFile,
-				       const std::string& missingPairingsFile)
+				       const std::string& everyDayPairingsFile)
 {
 
   ifstream pairingsStream;
@@ -1238,7 +1280,8 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
 
   ifstream refScenStream;
   refScenStream.open(refScenFile.c_str());
-  loadCrewCodeLegKeyForLegkeys(refScenStream);	     
+  loadCrewCodeLegKey(refScenStream);
+  generateEventSequenceKeys();	     
 
   cout << "legKeys.size() = " << legKeys.size() << endl;
   cout << "pairingMap.size() = " << pairingMap.size() << endl;
@@ -1281,12 +1324,12 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
 	      string dayOfOrig = "201507" + dayOfMonth;
 	      string firstLeg = dayOfOrig + pairingPattern.substr(0,5);
 	      string pairingBrandNewId = dayOfOrig + pairingPattern;
-	      string valueInMap;
+	      string whichKey;
 	      if (flightsOnDays.count(firstLeg))
 		{
 		  
 		  if ( !pairingMap.count(pairingBrandNewId)
-		       && isPrefixInMap(legKeys, pairingBrandNewId, valueInMap))
+		       && isPrefixInMap(legKeys, pairingBrandNewId, whichKey))
 		    
 		    {
 
@@ -1314,14 +1357,36 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
   cout << "Created " << missingPairingCounter << " new pairings." << endl;
 
   
-  ofstream missingPairingsStream;
-  missingPairingsStream.open(missingPairingsFile.c_str());
+  ofstream everyDayPairingsStream;
+  everyDayPairingsStream.open(everyDayPairingsFile.c_str());
 
   
   string pairingHeader = "#pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31";
 
-  missingPairingsStream << pairingHeader << endl;
+  everyDayPairingsStream << pairingHeader << endl;
 
+  for (SSMap::iterator pIt = pairingMap.begin();
+       pIt != pairingMap.end(); ++ pIt)
+    {
+      Pairing& pairing = pIt->second[0];
+      string origLineEnd = pairing.origLine;
+     
+      //Cut off first 3 fields
+      origLineEnd = origLineEnd.substr(origLineEnd.find(",") + 1);
+      origLineEnd = origLineEnd.substr(origLineEnd.find(",") + 1);
+      origLineEnd = origLineEnd.substr(origLineEnd.find(",") + 1);
+      
+      everyDayPairingsStream 
+	<< pairing.getId() << ","
+	<< pairing.getAId() << ","
+	//maybe we should use this:
+	//<< zeroCrc << ","
+	//but we use this instead
+	<< pairing.crcString() << ","
+	<< origLineEnd << endl;
+	//everyDayPairingsStream << pairing.origLine << endl; 
+	      
+    }
   for (vector<Pairing>::iterator pIt = missingPairings.begin();
        pIt != missingPairings.end(); ++ pIt)
     {
@@ -1333,7 +1398,7 @@ void MyPairConv::createMissingPairings(const std::string& pairingsFile,
       origLineEnd = origLineEnd.substr(origLineEnd.find(",") + 1);
       origLineEnd = origLineEnd.substr(origLineEnd.find(",") + 1);
       
-      missingPairingsStream 
+      everyDayPairingsStream 
 	<< pairing.getId() << ","
 	<< pairing.getAId() << ","
 	<< zeroCrc << ","

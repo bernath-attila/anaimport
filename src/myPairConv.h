@@ -90,6 +90,12 @@ class MyPairConv{
     {
       return (getId().substr(1, 3) == "OFF");
     }
+ 
+    bool isSby() const 
+    {
+      return (getType() == 'A'
+	      && getId().substr(2,2) == "SB");
+      }
     void setRank(const int _rank)
     {
       rank = _rank;
@@ -127,9 +133,10 @@ class MyPairConv{
 
   public:
     std::vector<MyPairConv::Event> events;
-    std::string eventLines;
+    //std::string eventLines;
     std::string origLine;
     char intOrDom;
+    bool isSbyPairing;
 
     Pairing(const std::string& _id, 
 	    const std::string& _aId,
@@ -155,10 +162,11 @@ class MyPairConv{
 	    events.push_back(evt);
 	    ++i;
 	  }
-	
+	isSbyPairing = events[0].isSby();
       }
 
-    void addEvents(std::vector<MyPairConv::Event>::iterator evtIt);
+
+    void specifyEvents(const std::vector<Event>& eventSeqInRoster);
     void parseCrcString(const std::string& crcString);
     void increaseCrc(const int rank)
     {
@@ -186,18 +194,30 @@ class MyPairConv{
 
     void setOldId(const std::string& _oldId)
     {
-      oldId = _oldId;
+      if (length() * 13 > _oldId.length())
+	{
+	  std::cerr << "Hej" << std::endl;
+	  exit(1);
+	}
+	oldId = _oldId.substr(0,length() * 13);
     }
+
     std::string getOldId() const
       {
-	if (oldId == "")
-	  {
-	    std::cerr << "The old Id has not yet been initialized!" << std::endl;
-	    exit(1);
-	  }
 	return oldId;
       }
     int getCrc(int index) const { return crc[index];}
+    std::string crcString() const 
+      { 
+	std::stringstream result;
+	for (int i = 0; i < 11; ++i)
+	{
+	  result << crc[i] << "|";
+	}
+	result << crc[11];
+
+	return result.str();
+      }
     const std::vector<int>& getCrc() const {return crc;}
     int length() const
     {
@@ -292,12 +312,9 @@ class MyPairConv{
   static std::string  concatEventIds(std::vector<Event>::iterator evtIt,
 				     const std::vector<Event>::iterator& evtEndIt,
 				     int length);
-  static void  concatEventIds(std::vector<Event>::iterator evtIt,
-			      const std::vector<Event>::iterator& evtEndIt,
-			      int length,
-			      std::string& pairingNewId, 
-			      std::string& eventSeqFullIds, 
-			      std::string& eventLines);
+  void  generateLegKeysEntry(std::vector<Event>::iterator evtIt,
+			     const std::vector<Event>::iterator& evtEndIt,
+			     int maxLength);
     
   bool whoTakesThisPairing(  Pairing& pairing);
   void  identifyPairingEvents();
@@ -366,8 +383,9 @@ class MyPairConv{
     return pairingMap[key].size();
   }
 
-  static bool isPrefixInMap(const std::map<std::string, std::string>& pairingMap, 
-		     const std::string& searchFor, std::string& valueInMap);
+  static bool isPrefixInMap(const std::map<std::string, std::vector<Event> >& pairingMap, 
+					const std::string& searchFor, std::string& whichKey);
+
 
   bool isPrefixInMap(std::string key, bool realPrefix = false);
 
@@ -401,11 +419,12 @@ class MyPairConv{
 
   void getPairingMaxLength(const std::string& pairingsFile);
   
-  std::map< std::string, std::string> firstLegNewIds;  
+  std::map< std::string, std::string> pairingFirstEvtIds;
+
 
   std::map< std::string, std::string> flightsOnDays;
-  std::map< std::string, std::string> legKeys;
-  void loadCrewCodeLegKeyForLegkeys(std::istream& infile);
+  std::map< std::string, std::vector<Event> > legKeys;
+  void generateEventSequenceKeys();
   std::map<std::string, std::string> pairingPatterns;
   void createMissingPairings(const std::string& pairingsFile,
 			     const std::string& refScenFile,

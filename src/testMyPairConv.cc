@@ -58,35 +58,89 @@ TEST (testParseCsvLine, testParseCsvLine1)
   
     
 }
+
 TEST (testWhoTakesThisPairing, testWhoTakesThisPairing1)
 {
 
   {
-    MyPairConv::Pairing pairing("20150702    2 IVL1    1 OFF1 OFF1 IVL1",
-			   "27602","0|0|0|0|0|0|0|0|0|1|2|0");
+    stringstream ss;
+    ss << "#pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31\n";
+    ss << "20150701    2 IVL1    1,27602,0|0|0|0|0|0|0|0|0|1|2|0,D,787,D0023A,3,D 023  767  770  529  ?  526  551  ?  D 624  263  268,KMJ KOJ,11:40--21:05 16:35--21:30 11:55--21:25, 5+10  2+15  3+35,11+00, 9+25  4+55  9+30,23+50,2,CF:0,CP:0,PP:0,PY:1,XX:0,ZX:0,ZZ:1,?,?,?,?,5,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n";
+
     stringstream legs;
 
     legs << "#emp_num,jod_dt,job_num,event_newid,event_start_dt,event_end_dt,leg_day_of_orig,rank,ORG_EMP_NUM,ORG_AIRLINE_CD,JOB_DT,JOB_NO,CARRIER,JOB_CD,DEP_PLACE,ARR_PLACE,DUTY_CD,DEP_TIME,ARR_TIME,FLT_BASE_DT,FLT_AIRLINE_CD,FLT_NUM_OR_JOB_CD,SCH_DEP_AIRP_CD,SCH_ARR_AIRP_CD,OPE_ODR,RANK\n";
-
-
     legs << "036047,20150731,10,  LO2,0730 15:00,0731 15:00,        ,-1,036047,NH,20150731,10,   ,LO2,TYO,TYO,   ,,,        ,   ,,,, ,\n";
     legs << "036071,20150701,10,    2,0701 15:00,0701 14:40,20150701,7,036071,NH,20150701,10,NH,0002,NRT,IAD,   ,2015-07-01 11:00:00.00,2015-07-01 23:40:00.00,20150701,NH,0002,NRT,IAD,1,PP\n";
     legs << "036071,20150703,10, IVL1,0702 15:00,0703 15:00,        ,-1,036071,NH,20150703,10,   ,IVL1,IAD,IAD,   ,,,        ,   ,,,, ,\n";
-    legs << "036071,20150704,10,    1,0703 16:20,0704 06:25,20150703,7,036071,NH,20150704,10,NH,0001,IAD,NRT,   ,2015-07-04 01:20:00.00,2015-07-04 15:25:00.00,20150703,NH,0001,IAD,NRT,1,PP\n";
+    legs << "036071,20150704,10,    1,0703 16:20,0704 06:25,20150704,7,036071,NH,20150704,10,NH,0001,IAD,NRT,   ,2015-07-04 01:20:00.00,2015-07-04 15:25:00.00,20150703,NH,0001,IAD,NRT,1,PP\n";
     legs << "036071,20150705,10, OFF1,0704 15:00,0705 15:00,        ,-1,036071,NH,20150705,10,   ,OFFA,TYO,TYO,   ,,,        ,   ,,,, ,\n";
     legs << "036071,20150706,10, OFF1,0705 15:00,0706 15:00,        ,-1,036071,NH,20150706,10,   ,OFFA,TYO,TYO,   ,,,        ,   ,,,, ,\n";
     legs << "036071,20150707,10, IVL1,0706 15:00,0707 15:00,        ,-1,036071,NH,20150707,10,   ,OFFA,TYO,TYO,   ,,,        ,   ,,,, ,\n";
+
     MyPairConv a;
+    a.loadPairings(ss);
     a.loadCrewCodeLegKey(legs);
+
+
+    a.generateEventSequenceKeys();
+    ASSERT_EQ(1, a.legKeys.size());
+    MyPairConv::Pairing& pairing = a.pairingMap["20150701    2 IVL1    1"][0];
+    //("20150701    2 IVL1    1",
+    //			   "27602","0|0|0|0|0|0|0|0|0|1|2|0");
+
     ASSERT_TRUE(a.whoTakesThisPairing(pairing));
-    ASSERT_EQ(2, pairing.events.size());
+
+    ASSERT_EQ(3, pairing.events.size());
+    ASSERT_EQ("20150701    220150703 IVL120150704    1", pairing.getOldId());
+
+    
+  }
+
+  {// test for a SBY pairing
+    stringstream ss;
+    ss << "#pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31\n";
+    ss << "20150701  SB1  SB1  SB1  SB1,686801,0|0|0|0|0|0|0|0|1|0|0|0,D,   ,S0510Z,4,SB1  ?  SB1  ?  SB1  ?  SB1,TYO TYO TYO,05:10--10:10 05:50--10:50 07:50--12:50 08:35--13:35, 0+00  0+00  0+00  0+00, 0+00, 5+00  5+00  5+00  5+00,20+00,1,CF:0,CP:0,PP:0,PY:1,XX:0,ZX:0,ZZ:0,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n";
+    ss << "20150703  SB1,693001,0|0|0|0|0|0|0|0|1|1|0|0,D,   ,S0600A,1,SB1,,06:00--11:00, 0+00, 0+00, 5+00, 5+00,2,CF:0,CP:0,PP:0,PY:1,XX:1,ZX:0,ZZ:0,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n";
+    
+    stringstream legs;
+    legs << "#emp_num,jod_dt,job_num,event_newid,event_start_dt,event_end_dt,leg_day_of_orig,rank,ORG_EMP_NUM,ORG_AIRLINE_CD,JOB_DT,JOB_NO,CARRIER,JOB_CD,DEP_PLACE,ARR_PLACE,DUTY_CD,DEP_TIME,ARR_TIME,FLT_BASE_DT,FLT_AIRLINE_CD,FLT_NUM_OR_JOB_CD,SCH_DEP_AIRP_CD,SCH_ARR_AIRP_CD,OPE_ODR,RANK\n";
+    legs << "013013,20150702,10, OFF1,0701 15:00,0702 15:00,        ,-1,013013,NH,20150702,10,   ,OFF1,TYO,TYO,   ,,,        ,   ,,,,,\n";
+    legs << "013013,20150703,10,  SB1,0703 03:00,0703 08:00,        ,-1,013013,NH,20150703,10,   ,SB1,TYO,TYO,   ,2015-07-03 12:00:00.00,2015-07-03 17:00:00.00,        ,   ,,,,,\n";
+    legs << "013013,20150704,10, OFF1,0703 15:00,0704 15:00,        ,-1,013013,NH,20150702,10,   ,OFF1,TYO,TYO,   ,,,        ,   ,,,,,\n";
+
+
+    MyPairConv a;
+    a.loadPairings(ss);
+    ASSERT_EQ(1, a.pairingFirstEvtIds.size());
+    
+    
+    a.loadCrewCodeLegKey(legs);
+
+
+    a.generateEventSequenceKeys();
+    ASSERT_EQ(1, a.legKeys.size());
+
+    ASSERT_EQ(1, a.legKeys.count("20150703  SB1"));
+    
+
+    MyPairConv::Pairing& pairing = a.pairingMap["20150703  SB1"][0];
+  
+    ASSERT_TRUE(a.whoTakesThisPairing(pairing));
+
+    ASSERT_EQ(1, pairing.events.size());
+    /*
+    ASSERT_EQ("20150701    2         IVL120150703    1", pairing.getOldId());
+
+    ASSERT_EQ("PLEG|20150701|NH    2 |NRT|0;PLEG|20150703|NH    1 |IAD|0;", pairing.eventLines);
+    */
   }
 }
 TEST (testPairing, testPairing1)
 {
   {
     MyPairConv::Pairing a1("20150712  id1","aId1","0|2|0|0|0|0|0|0|0|0|0|4");
-    MyPairConv::Pairing a2("20150712  id2","aId2","0|0|0|0|0|0|0|0|0|0|0|0");
+    MyPairConv::Pairing a2("20150712  id2","aId2","0|0|0|0|0|0|0|0|0|0|0|1");
     ASSERT_EQ("20150712  id1",a1.getId());
     ASSERT_EQ("aId1",a1.getAId());
     ASSERT_EQ(0,a1.getCrc(0));
@@ -94,7 +148,13 @@ TEST (testPairing, testPairing1)
     ASSERT_EQ(4,a1.getCrc(11));
     ASSERT_EQ(1, a1.events.size());
     ASSERT_EQ("  id1", a1.events[0].getId());
-    
+    ASSERT_EQ("0|2|0|0|0|0|0|0|0|0|0|4", a1.crcString());
+    a1.increaseCrc(a2.getCrc());
+    ASSERT_EQ("0|2|0|0|0|0|0|0|0|0|0|5", a1.crcString());
+    a1.setOldId("20150712  id1dsdfswdf");
+    ASSERT_EQ("20150712  id1", a1.getOldId());
+
+
   }
   {
     MyPairConv::Pairing a1("20150712D   1","aId1","0|2|0|0|0|0|0|0|0|0|0|4");
@@ -143,13 +203,14 @@ TEST (testPairing, testPairing1)
     evt.setDayOfOrig("20150712");
     events.push_back(evt);
 
-    a1.addEvents(events.begin());
+
 
     ASSERT_EQ(4, a1.events.size());
+    a1.specifyEvents(events);
     ASSERT_EQ("20150712D  7120150712  57820150712 IVL120150712  416", 
 	      a1.getOldId());
 
-    ASSERT_EQ(3, std::count(a1.eventLines.begin(), a1.eventLines.end(), ';'));
+
   }
 }
 
@@ -355,6 +416,23 @@ TEST (testCrmEvents, testCrmEvents1)
   a.setTlc("tlc2");
   ASSERT_EQ(0,a.numOfEvents());
 }
+TEST (testDeleteUnwanted, testDeleteUnwanted1){
+
+  
+    stringstream ss;
+    ss << "#pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31\n";
+    ss << "20150705D  23  767  770  529  526  551D 624  263  268,105,0|0|0|0|0|0|0|0|1|0|0|1,D,787,D0023A,3,D 023  767  770  529  ?  526  551  ?  D 624  263  268,KMJ KOJ,11:40--21:05 16:35--21:30 11:55--21:25, 5+10  2+15  3+35,11+00, 9+25  4+55  9+30,23+50,2,CF:0,CP:0,PP:0,PY:1,XX:0,ZX:0,ZZ:1,?,?,?,?,5,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n";
+    ss << "20150717D  23  767  770  529  526  551D 624  263  268,217,0|0|0|0|0|0|0|0|1|0|1|2,D,787,D0023B,3,D 023  767  770  529  ?  526  551  ?  D 624  263  268,KMJ KOJ,11:40--21:05 16:35--21:30 11:55--21:25, 5+10  2+15  3+35,11+00, 9+25  4+55  9+30,23+50,4,CF:0,CP:0,PP:0,PY:1,XX:0,ZX:1,ZZ:2,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,17,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"; 
+    ss << "20150717D  23  767  770  529  526  551D 624  263  268,217,0|0|0|0|0|0|0|0|1|0|1|1,D,787,D0023B,3,D 023  767  770  529  ?  526  551  ?  D 624  263  268,KMJ KOJ,11:40--21:05 16:35--21:30 11:55--21:25, 5+10  2+15  3+35,11+00, 9+25  4+55  9+30,23+50,4,CF:0,CP:0,PP:0,PY:1,XX:0,ZX:1,ZZ:2,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,17,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"; 
+    MyPairConv a;
+
+    a.loadPairings(ss);
+    ASSERT_EQ(2, a.size());
+    a.pairingMap["20150705D  23  767  770  529  526  551D 624  263  268"][0].setOldId("20150717D  23  767  770  529  526  551D 624  263  268,217,0|0|0|0|0|0|0|0|1|0|1|1,D,787,D0023B,3,D 023  767  770  529  ?  526  551  ?  D 624  263  268,KMJ KOJ,11:40--21:05 16:35--21:30 11:55--21:25, 5+10  2+15  3+35,11+00, 9+25  4+55  9+30,23+50,4,CF:0,CP:0,PP:0,PY:1,XX:0,ZX:1,ZZ:2,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,17,?,?,?,?,?,?,?,?,?,?,?,?,?,?Ahoy");
+    a.deleteUnWantedPairings();
+    ASSERT_EQ(1, a.size());
+
+  }
 
 TEST (testLoadPairing, testLoadPairing1){
 
@@ -363,6 +441,7 @@ TEST (testLoadPairing, testLoadPairing1){
     ss << "#pairing_newid,pairing_aid,crc,I/D,Typical_ACType,Pattern_No.,Length,Duty,Stay,Check-IN/OUT,F/T,F/T(Total),W/T,W/T(Total),Total Num,crc_CF,crc_CP,crc_PP,crc_PY,crc_XX,crc_ZX,crc_ZZ,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31\n";
     ss << "20150705D  23  767  770  529  526  551D 624  263  268,105,0|0|0|0|0|0|0|0|1|0|0|1,D,787,D0023A,3,D 023  767  770  529  ?  526  551  ?  D 624  263  268,KMJ KOJ,11:40--21:05 16:35--21:30 11:55--21:25, 5+10  2+15  3+35,11+00, 9+25  4+55  9+30,23+50,2,CF:0,CP:0,PP:0,PY:1,XX:0,ZX:0,ZZ:1,?,?,?,?,5,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n";
     ss << "20150717D  23  767  770  529  526  551D 624  263  268,217,0|0|0|0|0|0|0|0|1|0|1|2,D,787,D0023B,3,D 023  767  770  529  ?  526  551  ?  D 624  263  268,KMJ KOJ,11:40--21:05 16:35--21:30 11:55--21:25, 5+10  2+15  3+35,11+00, 9+25  4+55  9+30,23+50,4,CF:0,CP:0,PP:0,PY:1,XX:0,ZX:1,ZZ:2,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,17,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"; 
+    ss << "20150717D  23  767  770  529  526  551D 624  263  268,217,0|0|0|0|0|0|0|0|1|0|1|1,D,787,D0023B,3,D 023  767  770  529  ?  526  551  ?  D 624  263  268,KMJ KOJ,11:40--21:05 16:35--21:30 11:55--21:25, 5+10  2+15  3+35,11+00, 9+25  4+55  9+30,23+50,4,CF:0,CP:0,PP:0,PY:1,XX:0,ZX:1,ZZ:2,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,17,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"; 
     MyPairConv a;
 
     a.loadPairings(ss);
@@ -371,8 +450,10 @@ TEST (testLoadPairing, testLoadPairing1){
 	      a.pairingMap["20150705D  23  767  770  529  526  551D 624  263  268"][0].origLine);
     ASSERT_EQ('D',
 	      a.pairingMap["20150705D  23  767  770  529  526  551D 624  263  268"][0].intOrDom);
-    ASSERT_EQ(1, a.firstLegNewIds.size());
-    ASSERT_EQ(1, a.firstLegNewIds.count("D  23"));
+    ASSERT_EQ("0|0|0|0|0|0|0|0|2|0|2|3",
+	      a.pairingMap["20150717D  23  767  770  529  526  551D 624  263  268"][0].crcString());
+    ASSERT_EQ(1, a.pairingFirstEvtIds.size());
+    ASSERT_EQ(1, a.pairingFirstEvtIds.count("D  23"));
     
   }
   /*
