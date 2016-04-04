@@ -406,8 +406,7 @@ class MyPairConv{
   void  writeRosterLines(std::ostream& rosterOut);
   void  writePairings(std::ostream& pairingOut);
 
-  void createRosters(const std::string& identifiedPairingsFile, 
-		     const std::string& preassFile, 
+  void createRosters(const std::string& preassFile, 
 		     const std::string& preassToImportFile, 
 		     const std::string& pairingsToImportFile);
 

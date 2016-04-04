@@ -1234,17 +1234,10 @@ void MyPairConv::identifyPairingsFromRefScen(const std::string& pairingsFile,
 }
 
 
-void MyPairConv::createRosters(const std::string& identifiedPairingsFile, 
-			       const std::string& preassFile, 
+void MyPairConv::createRosters(const std::string& preassFile, 
 			       const std::string& preassToImportFile, 
 			       const std::string& pairingsToImportFile)
 {
-  
-  ifstream pairingsStream;
-  pairingsStream.open(identifiedPairingsFile.c_str());
-  loadPairings(pairingsStream, true);
-  
-  
   
   ifstream anaPreassStream;
     //anaPreassStream.open("/media/sf_ANADataForCpp/cppinput/CrewCode_LegKey.csv");
